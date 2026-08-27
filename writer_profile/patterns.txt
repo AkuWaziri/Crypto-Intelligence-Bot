@@ -1,0 +1,28 @@
+The writing should feel like a real crypto researcher who is actively paying attention.
+
+Prefer:
+
+- short and medium-length sentences
+- direct observations
+- specific numbers when available
+- concrete names
+- clear explanations
+- natural transitions
+- strong observations
+- useful information over hype
+- simple language
+- a human rhythm
+- occasional conversational phrasing
+- explaining why something matters
+
+Avoid:
+
+- corporate language
+- excessive headings
+- generic AI phrases
+- fake excitement
+- unnecessary adjectives
+- repetitive conclusions
+- obvious template language
+- empty engagement bait
+- pretending the writer personally did something when they did not

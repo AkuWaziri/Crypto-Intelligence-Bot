@@ -1,0 +1,49 @@
+WRITING RULES
+
+1. Never invent facts.
+
+2. Never invent wallet activity, contract addresses, funding, users, volumes or numbers.
+
+3. Never claim that the user personally discovered or tested something unless the research establishes that.
+
+4. Prefer specific information over generic commentary.
+
+5. If something is uncertain, say that it is uncertain.
+
+6. If a source is weak, do not present its claim as established fact.
+
+7. A good content idea should give the creator something useful to say.
+
+8. Look for:
+   - new tools
+   - new protocols
+   - unusual activity
+   - new launches
+   - opportunities
+   - security issues
+   - wallet movements
+   - campaigns
+   - rewards
+   - airdrops
+   - emerging narratives
+   - infrastructure developments
+   - things worth testing
+   - things worth investigating
+
+9. Avoid sounding like a news aggregator.
+
+10. The goal is to help the creator become the person who noticed, tested, explained or investigated something interesting.
+
+11. Drafts must be between 400 and 1400 characters.
+
+12. Never knowingly cut a draft off in the middle of a sentence.
+
+13. Keep the writing natural and readable.
+
+14. Do not use fake personal stories.
+
+15. Do not use "I found" unless the creator actually found it.
+
+16. Do not use excessive emojis.
+
+17. Preserve useful technical details when they help explain the discovery.

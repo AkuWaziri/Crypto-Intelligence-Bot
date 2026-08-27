@@ -1,0 +1,28 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+EXA_API_KEY = os.getenv("EXA_API_KEY", "")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
+RESEARCH_INTERVAL_MINUTES = int(
+    os.getenv("RESEARCH_INTERVAL_MINUTES", "45")
+)
+
+MAX_RESEARCH_RESULTS = int(
+    os.getenv("MAX_RESEARCH_RESULTS", "3")
+)
+
+MAX_SOURCE_CHARACTERS = 1500
+MAX_GROQ_OUTPUT_TOKENS = 500
+
+MIN_DRAFT_CHARACTERS = 400
+MAX_DRAFT_CHARACTERS = 1400
+
+WRITER_PROFILE_DIR = "writer_profile"
