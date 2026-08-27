@@ -3,7 +3,7 @@ import logging
 import os
 
 from flask import Flask, request, jsonify
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -17,7 +17,7 @@ from writer import generate_intelligence
 
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.INFO
 )
 
 logger = logging.getLogger(__name__)
@@ -34,18 +34,17 @@ telegram_app = (
 HELP_TEXT = """
 🧠 <b>Crypto Intelligence Bot</b>
 
-Research crypto/Web3 developments and turn useful discoveries into content intelligence.
+Research crypto/Web3 and turn useful discoveries into content intelligence.
 
-<b>COMMANDS</b>
+<b>Commands</b>
 
-/start — start the bot
-/help — show this help
+/help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
-<b>EXAMPLES</b>
+<b>Examples</b>
 
 /research AI agents
 
@@ -56,8 +55,6 @@ Research crypto/Web3 developments and turn useful discoveries into content intel
 /research wallets moving BTC
 
 /research new crypto opportunities
-
-/research airdrops ending soon
 """
 
 
@@ -96,6 +93,12 @@ async def niches_command(
 
     niches = get_niches()
 
+    if not niches:
+        await update.message.reply_text(
+            "No research niches configured."
+        )
+        return
+
     text = "🧠 <b>RESEARCH NICHES</b>\n\n"
 
     for index, niche in enumerate(
@@ -127,14 +130,26 @@ async def add_niche_command(
         context.args
     ).strip()
 
-    if add_niche(niche):
-        await update.message.reply_text(
-            f"✅ Added niche: {niche}"
+    try:
+        added = add_niche(niche)
+
+        if added:
+            await update.message.reply_text(
+                f"✅ Added niche: {niche}"
+            )
+        else:
+            await update.message.reply_text(
+                "⚠️ That niche already exists "
+                "or is invalid."
+            )
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to add niche."
         )
-    else:
+
         await update.message.reply_text(
-            "⚠️ That niche already exists "
-            "or is invalid."
+            f"❌ Could not add niche.\n\n{exc}"
         )
 
 
@@ -195,11 +210,11 @@ async def research_command(
 
         try:
             await status.edit_text(
-                f"❌ Research failed.\n\n{str(exc)}"
+                f"❌ Research failed.\n\n{exc}"
             )
         except Exception:
             await update.message.reply_text(
-                f"❌ Research failed.\n\n{str(exc)}"
+                f"❌ Research failed.\n\n{exc}"
             )
 
 
@@ -238,7 +253,7 @@ async def feed_command(
         )
 
         await update.message.reply_text(
-            f"❌ Feed failed.\n\n{str(exc)}"
+            f"❌ Feed failed.\n\n{exc}"
         )
 
 
@@ -254,45 +269,59 @@ async def send_message(
 
     max_length = 3900
 
-    if len(text) <= max_length:
-        await update.message.reply_text(
-            text
-        )
-        return
-
     for start in range(
         0,
         len(text),
         max_length,
     ):
         await update.message.reply_text(
-            text[start:start + max_length]
+            text[
+                start:start + max_length
+            ]
         )
 
 
 def setup_handlers():
     telegram_app.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start,
+        )
     )
 
     telegram_app.add_handler(
-        CommandHandler("help", help_command)
+        CommandHandler(
+            "help",
+            help_command,
+        )
     )
 
     telegram_app.add_handler(
-        CommandHandler("niches", niches_command)
+        CommandHandler(
+            "niches",
+            niches_command,
+        )
     )
 
     telegram_app.add_handler(
-        CommandHandler("research", research_command)
+        CommandHandler(
+            "research",
+            research_command,
+        )
     )
 
     telegram_app.add_handler(
-        CommandHandler("addniche", add_niche_command)
+        CommandHandler(
+            "addniche",
+            add_niche_command,
+        )
     )
 
     telegram_app.add_handler(
-        CommandHandler("feed", feed_command)
+        CommandHandler(
+            "feed",
+            feed_command,
+        )
     )
 
 
@@ -303,8 +332,8 @@ setup_handlers()
 def health():
     return jsonify(
         {
-            "status": "ok",
             "service": "crypto-intelligence-bot",
+            "status": "ok",
         }
     )
 
@@ -321,13 +350,12 @@ async def telegram_webhook():
             {"status": "ignored"}
         )
 
-    bot = Bot(
-        TELEGRAM_BOT_TOKEN
-    )
-
+    # IMPORTANT:
+    # Use the already initialized bot
+    # belonging to telegram_app.
     update = Update.de_json(
         data,
-        bot,
+        telegram_app.bot,
     )
 
     await telegram_app.process_update(
