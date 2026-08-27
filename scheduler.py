@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+from datetime import datetime
 
 from research import search_web
 from writer import generate_intelligence
@@ -119,7 +120,6 @@ def get_search_queries(niche):
     if niche in NICHE_SEARCHES:
         return NICHE_SEARCHES[niche]
 
-    # Custom niches still receive crypto context.
     return [
         f"{niche} crypto Web3 latest",
         f"{niche} blockchain latest",
@@ -127,6 +127,14 @@ def get_search_queries(niche):
 
 
 def choose_research_topics():
+    """
+    Rotate through the available niches without requiring
+    persistent local state.
+
+    This works correctly on GitHub Actions because every
+    workflow run can calculate its position independently.
+    """
+
     niches = get_niches()
 
     if not niches:
@@ -134,17 +142,29 @@ def choose_research_topics():
 
     count = min(4, len(niches))
 
-    return random.sample(niches, count)
+    now = datetime.utcnow()
+
+    slot = (
+        now.toordinal() * 48
+        + now.hour * 2
+        + now.minute // 30
+    )
+
+    start = (slot * count) % len(niches)
+
+    return [
+        niches[(start + i) % len(niches)]
+        for i in range(count)
+    ]
 
 
 async def research_niche(niche):
     """
-    Research one niche using targeted queries.
+    Research one niche using targeted crypto queries.
     """
 
     queries = get_search_queries(niche)
 
-    # Pick one query per niche this cycle.
     query = random.choice(queries)
 
     logger.info(
@@ -161,7 +181,6 @@ async def research_niche(niche):
     if not research.get("results"):
         return None
 
-    # Tell the writer which niche triggered the research.
     research["niche"] = niche
 
     return research
