@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-
 telegram_app = (
     Application.builder()
     .token(TELEGRAM_BOT_TOKEN)
@@ -43,7 +42,7 @@ Research crypto/Web3 developments and turn useful discoveries into content intel
 /help — show this help
 /niches — show research niches
 /research &lt;topic&gt; — research anything
-/addniche &lt;niche&gt; — add a new niche
+/addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
 <b>EXAMPLES</b>
@@ -103,9 +102,7 @@ async def niches_command(
         niches,
         start=1,
     ):
-        text += (
-            f"{index}. {niche}\n"
-        )
+        text += f"{index}. {niche}\n"
 
     await update.message.reply_text(
         text,
@@ -171,9 +168,7 @@ async def research_command(
             query,
         )
 
-        if not research.get(
-            "results"
-        ):
+        if not research.get("results"):
             await status.edit_text(
                 "❌ No useful crypto/Web3 "
                 "results found."
@@ -200,12 +195,11 @@ async def research_command(
 
         try:
             await status.edit_text(
-                "❌ Research failed.\n\n"
-                f"{str(exc)}"
+                f"❌ Research failed.\n\n{str(exc)}"
             )
         except Exception:
             await update.message.reply_text(
-                "❌ Research failed."
+                f"❌ Research failed.\n\n{str(exc)}"
             )
 
 
@@ -244,8 +238,7 @@ async def feed_command(
         )
 
         await update.message.reply_text(
-            "❌ Feed failed.\n\n"
-            f"{str(exc)}"
+            f"❌ Feed failed.\n\n{str(exc)}"
         )
 
 
@@ -273,53 +266,33 @@ async def send_message(
         max_length,
     ):
         await update.message.reply_text(
-            text[
-                start:start + max_length
-            ]
+            text[start:start + max_length]
         )
 
 
 def setup_handlers():
     telegram_app.add_handler(
-        CommandHandler(
-            "start",
-            start,
-        )
+        CommandHandler("start", start)
     )
 
     telegram_app.add_handler(
-        CommandHandler(
-            "help",
-            help_command,
-        )
+        CommandHandler("help", help_command)
     )
 
     telegram_app.add_handler(
-        CommandHandler(
-            "niches",
-            niches_command,
-        )
+        CommandHandler("niches", niches_command)
     )
 
     telegram_app.add_handler(
-        CommandHandler(
-            "research",
-            research_command,
-        )
+        CommandHandler("research", research_command)
     )
 
     telegram_app.add_handler(
-        CommandHandler(
-            "addniche",
-            add_niche_command,
-        )
+        CommandHandler("addniche", add_niche_command)
     )
 
     telegram_app.add_handler(
-        CommandHandler(
-            "feed",
-            feed_command,
-        )
+        CommandHandler("feed", feed_command)
     )
 
 
@@ -331,9 +304,7 @@ def health():
     return jsonify(
         {
             "status": "ok",
-            "service": (
-                "crypto-intelligence-bot"
-            ),
+            "service": "crypto-intelligence-bot",
         }
     )
 
@@ -354,11 +325,9 @@ async def telegram_webhook():
         TELEGRAM_BOT_TOKEN
     )
 
-    update = (
-        Update.de_json(
-            data,
-            bot,
-        )
+    update = Update.de_json(
+        data,
+        bot,
     )
 
     await telegram_app.process_update(
@@ -370,12 +339,20 @@ async def telegram_webhook():
     )
 
 
+async def initialize_telegram():
+    await telegram_app.initialize()
+
+
 if __name__ == "__main__":
     port = int(
         os.environ.get(
             "PORT",
             10000,
         )
+    )
+
+    asyncio.run(
+        initialize_telegram()
     )
 
     app.run(
