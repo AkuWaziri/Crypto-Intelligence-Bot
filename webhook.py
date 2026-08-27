@@ -38,6 +38,7 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 
 <b>Commands</b>
 
+/start — start the bot
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
@@ -275,9 +276,7 @@ async def send_message(
         max_length,
     ):
         await update.message.reply_text(
-            text[
-                start:start + max_length
-            ]
+            text[start:start + max_length]
         )
 
 
@@ -350,9 +349,6 @@ async def telegram_webhook():
             {"status": "ignored"}
         )
 
-    # IMPORTANT:
-    # Use the already initialized bot
-    # belonging to telegram_app.
     update = Update.de_json(
         data,
         telegram_app.bot,
@@ -367,8 +363,33 @@ async def telegram_webhook():
     )
 
 
-async def initialize_telegram():
+async def startup():
     await telegram_app.initialize()
+
+    render_url = os.environ.get(
+        "RENDER_EXTERNAL_URL"
+    )
+
+    if render_url:
+        webhook_url = (
+            f"{render_url.rstrip('/')}"
+            "/telegram"
+        )
+
+        await telegram_app.bot.set_webhook(
+            url=webhook_url
+        )
+
+        logger.info(
+            "Telegram webhook registered: %s",
+            webhook_url,
+        )
+
+    else:
+        logger.warning(
+            "RENDER_EXTERNAL_URL is not set. "
+            "Telegram webhook was not automatically registered."
+        )
 
 
 if __name__ == "__main__":
@@ -380,7 +401,7 @@ if __name__ == "__main__":
     )
 
     asyncio.run(
-        initialize_telegram()
+        startup()
     )
 
     app.run(
