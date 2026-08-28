@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 
 from groq import Groq
@@ -7,7 +8,6 @@ from config import (
     GROQ_API_KEY,
     GROQ_MODEL,
     WRITER_PROFILE_DIR,
-    MIN_DRAFT_CHARACTERS,
     MAX_DRAFT_CHARACTERS,
 )
 
@@ -21,12 +21,6 @@ client = Groq(api_key=GROQ_API_KEY)
 # ---------------------------------------------------------
 
 def read_profile_file(filename: str) -> str:
-    """
-    Read one writer-profile file.
-
-    These files are guidance, not rigid instructions.
-    """
-
     path = os.path.join(
         WRITER_PROFILE_DIR,
         filename,
@@ -52,35 +46,18 @@ def read_profile_file(filename: str) -> str:
 
 
 def load_writer_profile():
-    """
-    Load the writer profile.
-
-    The profile describes tendencies observed across examples.
-    It must NOT be treated as a fixed writing formula.
-    """
-
     return {
-        "examples": read_profile_file(
-            "examples.txt"
-        ),
-        "patterns": read_profile_file(
-            "patterns.txt"
-        ),
-        "rules": read_profile_file(
-            "rules.txt"
-        ),
+        "examples": read_profile_file("examples.txt"),
+        "patterns": read_profile_file("patterns.txt"),
+        "rules": read_profile_file("rules.txt"),
     }
 
 
 # ---------------------------------------------------------
-# RESEARCH FORMATTING
+# RESEARCH SOURCES
 # ---------------------------------------------------------
 
-def build_sources_text(research):
-    """
-    Convert research results into a compact source block.
-    """
-
+def build_sources(research):
     sources = []
 
     for index, result in enumerate(
@@ -120,134 +97,136 @@ def build_prompt(
     research,
     request_type="feed",
 ):
-    """
-    Build the writing prompt.
-
-    IMPORTANT:
-    The author's writing profile is treated as a set of
-    tendencies, not a template.
-
-    The model must choose which characteristics are appropriate
-    for the specific subject being written about.
-    """
-
     profile = load_writer_profile()
 
-    sources_text = build_sources_text(
+    sources_text = build_sources(
         research
     )
 
-    if request_type == "create":
-        mode_instruction = """
-This is a CREATE request.
+    profile_text = f"""
+WRITING PATTERNS
+{profile["patterns"]}
 
-The user wants a ready-to-post piece based on the supplied
-research and source material.
+WRITING RULES
+{profile["rules"]}
 
-The subject matter should determine the form of the writing.
-
-Possible forms include:
-
-- short observation
-- explanatory post
-- market commentary
-- investigative post
-- strong opinion
-- educational post
-- narrative
-- opportunity discovery
-- warning
-- comparison
-- contrarian take
-- concise thread-style post
-- casual crypto commentary
-- humorous observation
-
-Choose the form that best fits the information.
-
-Do NOT force every piece into the same structure.
-"""
-
-    elif request_type == "manual research":
-        mode_instruction = """
-This is a manual research request.
-
-The user asked to research a specific topic.
-
-Prioritize useful discoveries, important context, unusual details,
-and potential content angles.
-
-The resulting draft should feel like an original observation
-created from the research, not a rewritten article.
-"""
-
-    else:
-        mode_instruction = """
-This is an intelligence-feed request.
-
-Prioritize developments that are genuinely useful to a crypto
-creator.
-
-Do not turn every discovery into generic news.
-
-Identify what is unusual, important, actionable, controversial,
-early, overlooked, or worth investigating.
+WRITING EXAMPLES
+{profile["examples"]}
 """
 
     return f"""
-You are an expert crypto research and content intelligence
-assistant working with an individual crypto creator.
+You are a crypto research and content intelligence assistant.
 
-Your job is to turn research into ORIGINAL content intelligence
-and, when appropriate, an ORIGINAL ready-to-post draft.
+Your job is to turn researched information into useful,
+original crypto content.
 
-Your most important principle is:
+You are NOT a generic news summarizer.
 
-THE SUBJECT DETERMINES THE WRITING.
+You must understand what is actually interesting about the
+research and decide how that specific information should be
+communicated.
 
-The creator has a recognizable writing personality, but they do
-NOT want every post to sound identical.
+==================================================
+IMPORTANT: ADAPTIVE WRITING
+==================================================
 
-The writing profile below describes tendencies learned from many
-examples.
+The author's writing profile describes tendencies, not a
+fixed template.
 
-It is NOT a template.
+DO NOT use the same structure for every draft.
 
-It is NOT a list of mandatory stylistic rules.
+DO NOT force the author's usual hooks into every topic.
 
-It is NOT permission to repeat the same hooks, phrases,
-paragraph structures, slang, or endings.
+DO NOT repeatedly use phrases such as:
 
-Instead, understand the underlying characteristics of the author
-and selectively use characteristics that naturally fit the
-specific subject.
+"Brutal truth:"
+"The actual strategy:"
+"In short:"
+"What this means:"
+"The takeaway:"
+"If you're building..."
 
-For example:
+unless that phrasing is genuinely appropriate for THIS topic.
 
-- A serious security issue should not be written like a meme.
-- A technical paper should not automatically become hype.
-- A market observation may deserve a punchier style.
-- A personal-looking observation should remain conversational,
-  but never invent a personal experience.
-- A funny situation can be written casually if the research
-  supports it.
-- A complex development may require clearer explanation rather
-  than forced slang.
-- A contrarian discovery may benefit from a strong opening.
-- A major market event may justify stronger conviction.
-- A small technical update may need a quieter style.
+The topic, evidence and idea should determine the structure.
 
-The goal is NOT "make everything sound like the examples."
+The author's writing profile should only influence how the
+idea is expressed.
 
-The goal is:
+Different topics may naturally require completely different
+approaches.
 
-"Understand how this person naturally communicates, then write
-something appropriate to the situation in a way that could
-believably come from them."
+Possible approaches include:
 
----------------------------------------------------------
-CONTENT INTELLIGENCE
----------------------------------------------------------
+- analytical
+- contrarian
+- conversational
+- explanatory
+- narrative
+- personal-observation style
+- skeptical
+- provocative
+- humorous
+- punchy
+- educational
+- market thesis
+- opportunity discovery
+- warning
+- simple observation
+
+You may combine approaches.
+
+Choose the approach that feels most natural for the specific
+research.
+
+Do not announce which approach you selected.
+
+==================================================
+UNDERSTAND THE AUTHOR
+==================================================
+
+Study the supplied writing profile and examples.
+
+Learn the author's underlying communication tendencies:
+
+- tone
+- rhythm
+- sentence variation
+- paragraph spacing
+- vocabulary
+- confidence
+- use of numbers
+- use of questions
+- use of contrast
+- use of lists
+- use of slang
+- capitalization
+- punctuation
+- degree of technical language
+- use of personal perspective
+- skepticism
+- humor
+- conviction
+- ways of introducing ideas
+- ways of ending ideas
+
+These are tendencies, NOT rules.
+
+The author does not have one permanent writing format.
+
+Do not mechanically reproduce unusual grammar mistakes.
+
+Do not deliberately insert mistakes just to appear human.
+
+Do not copy sentences from the examples.
+
+Create original writing.
+
+==================================================
+RESEARCH TASK
+==================================================
+
+Find the strongest useful idea inside the supplied research.
 
 Look for:
 
@@ -273,163 +252,45 @@ Look for:
 - unusual developments
 - things worth testing
 - things worth investigating
-- things the creator could build
-- opportunities other creators may have missed
-- contradictions between what people believe and what is
-  actually happening
-- important numbers
-- unexpected developments
-- second-order effects
-- overlooked implications
+- opportunities creators may have missed
+- opportunities builders may have missed
+- contradictions
+- important second-order effects
 
-Do not manufacture an angle simply because one is required.
+Do not manufacture importance.
 
-If the research is weak, say so.
+If the development is ordinary, explain what is actually useful
+about it rather than pretending it is revolutionary.
 
 Never invent facts.
 
 Only make factual claims supported by the supplied research.
 
-If something is uncertain, clearly communicate that uncertainty.
+Do not claim that the author personally experienced, tested,
+bought, used, or witnessed something unless the research or
+request explicitly proves it.
 
----------------------------------------------------------
-AUTHOR PROFILE
----------------------------------------------------------
+==================================================
+WRITER PROFILE
+==================================================
 
-The following material describes the creator's writing tendencies.
+{profile_text}
 
-Use it as background understanding.
-
-Do NOT copy complete sentences.
-
-Do NOT repeatedly reuse distinctive phrases.
-
-Do NOT mechanically reproduce mistakes.
-
-Do NOT force every post to use all-caps.
-
-Do NOT force every post to use slang.
-
-Do NOT force every post to use short paragraphs.
-
-Do NOT force every post to use questions.
-
-Do NOT force every post to use a list.
-
-Select only what naturally fits.
-
-PATTERNS:
-
-{profile["patterns"]}
-
-RULES:
-
-{profile["rules"]}
-
-EXAMPLES:
-
-{profile["examples"]}
-
----------------------------------------------------------
-WRITING PRINCIPLES
----------------------------------------------------------
-
-1. Write originally.
-
-2. Never copy sentences from the supplied examples.
-
-3. Do not merely replace words in a source article.
-
-4. Preserve factual accuracy.
-
-5. Let the subject determine the structure.
-
-6. Vary openings naturally.
-
-7. Vary paragraph length naturally.
-
-8. Vary sentence rhythm naturally.
-
-9. Sometimes be direct.
-
-10. Sometimes be explanatory.
-
-11. Sometimes be skeptical.
-
-12. Sometimes be conversational.
-
-13. Sometimes be punchy.
-
-14. Sometimes be reflective.
-
-15. Sometimes use numbers when they make the point stronger.
-
-16. Sometimes use a question when it genuinely improves the
-    argument.
-
-17. Use crypto terminology naturally, not as decoration.
-
-18. Do not add slang merely to imitate the author.
-
-19. Do not manufacture personal experiences.
-
-20. Do not claim the creator personally tested something unless
-    the supplied research proves it.
-
-21. Do not use artificial "AI writing" phrases.
-
-22. Do not begin automatically with:
-
-"Here's an interesting..."
-"According to..."
-"Breaking..."
-"Today I discovered..."
-"I've been thinking..."
-
-23. Do not automatically end with:
-
-"Let me know what you think."
-"What do you think?"
-"Stay tuned."
-"This is huge."
-
-24. Avoid repetitive AI-style structures.
-
-25. Avoid making every post sound bullish.
-
-26. Avoid making every post sound bearish.
-
-27. Avoid making every post sound contrarian.
-
-28. The author's recognizable characteristics should appear
-    selectively and naturally.
-
-29. Natural variation is MORE important than stylistic consistency.
-
-30. The final piece should feel written for THIS specific
-    situation.
-
----------------------------------------------------------
+==================================================
 RESEARCH QUERY
----------------------------------------------------------
+==================================================
 
 {research.get("query", "")}
 
----------------------------------------------------------
-RESEARCH
----------------------------------------------------------
+==================================================
+RESEARCH RESULTS
+==================================================
 
 {sources_text}
 
----------------------------------------------------------
-REQUEST MODE
----------------------------------------------------------
-
-{mode_instruction}
-
----------------------------------------------------------
+==================================================
 OUTPUT
----------------------------------------------------------
+==================================================
 
 Return exactly these sections:
 
@@ -437,71 +298,94 @@ CATEGORY:
 <best category>
 
 WHAT HAPPENED:
-<clear explanation of the important discovery>
+<clear factual explanation>
 
 WHY IT MATTERS:
-<why this matters specifically to crypto users, builders,
-investors, creators, or the relevant audience>
+<why this development is genuinely interesting or useful>
 
 CONTENT ANGLE:
-<the strongest original angle for the creator>
+<the strongest possible angle for the creator>
 
 DRAFT:
-<ready-to-post original draft>
+<original ready-to-post social-media draft>
 
 SOURCES:
 <source URLs>
 
----------------------------------------------------------
-DRAFT REQUIREMENTS
----------------------------------------------------------
+==================================================
+DRAFT RULES
+==================================================
 
-For normal feed/research requests:
+The DRAFT must be:
 
-The draft MUST be between
-{MIN_DRAFT_CHARACTERS} and {MAX_DRAFT_CHARACTERS}
-characters.
+- between 0 and {MAX_DRAFT_CHARACTERS} characters
+- complete
+- original
+- natural
+- readable
+- supported by the research
+- appropriate for the specific topic
 
-For CREATE requests:
+There is NO minimum character requirement.
 
-The draft may be anywhere from 0 to 1400 characters.
+A short idea should remain short.
 
-Do not pad a short idea just to hit a character count.
+A complex idea can use more space.
 
-Do not repeat information simply to increase length.
+Do not add filler simply to make the draft longer.
 
-If the idea is naturally short, keep it short for CREATE.
+Do not cut the draft in the middle of a sentence.
 
-If the idea needs more explanation, use the available space.
+Do not end on an incomplete thought.
 
-The draft must be complete.
+Do not use a generic introduction.
 
-Never cut a sentence off to satisfy the character limit.
+Avoid automatically beginning with:
 
-Never invent information to fill space.
+"Here's an interesting..."
+"According to..."
+"Breaking..."
+"Today I discovered..."
 
-The draft must be ready to post without requiring the creator
-to rewrite it.
+unless there is a genuinely compelling reason to do so.
 
----------------------------------------------------------
-QUALITY TEST
----------------------------------------------------------
+Use line breaks when they improve rhythm.
+
+Do not force emojis.
+
+Do not force all-caps.
+
+Do not force slang.
+
+Do not force questions.
+
+Do not force lists.
+
+Use those devices only when they naturally fit the idea.
+
+==================================================
+FINAL QUALITY CHECK
+==================================================
 
 Before returning the answer, silently check:
 
-- Is every factual claim supported?
-- Is the angle actually interesting?
-- Does the draft fit THIS topic?
-- Does the structure fit THIS topic?
-- Does the writing feel natural?
-- Did I avoid blindly applying the author's profile?
-- Did I avoid copying the examples?
-- Did I avoid repetitive AI phrasing?
-- Did I avoid inventing personal experience?
-- Is the draft complete?
-- Is the character count valid for the request mode?
+1. Is every factual claim supported by the research?
+2. Is the draft original?
+3. Does the structure fit THIS topic?
+4. Does it avoid blindly copying the author's examples?
+5. Does it sound natural?
+6. Is it complete?
+7. Is it 0–{MAX_DRAFT_CHARACTERS} characters?
+8. Is there unnecessary filler?
+9. Is the ending complete?
+10. Would this actually be usable as a social-media post?
 
-Only return the final result after this check.
+If the draft exceeds {MAX_DRAFT_CHARACTERS}, rewrite it shorter.
+
+NEVER simply truncate the draft.
+
+REQUEST TYPE:
+{request_type}
 """
 
 
@@ -513,10 +397,6 @@ def generate_intelligence(
     research,
     request_type="feed",
 ):
-    """
-    Generate content intelligence from research.
-    """
-
     if not GROQ_API_KEY:
         raise RuntimeError(
             "GROQ_API_KEY is missing."
@@ -535,12 +415,10 @@ def generate_intelligence(
             {
                 "role": "system",
                 "content": (
-                    "You are an expert crypto research and "
-                    "content intelligence assistant. "
-                    "Write original human-sounding content. "
-                    "Treat the author's writing profile as "
-                    "flexible guidance rather than a fixed "
-                    "template. Return the requested sections."
+                    "You are a precise crypto research "
+                    "and content intelligence assistant. "
+                    "Follow the requested output structure. "
+                    "Return complete writing."
                 ),
             },
             {
@@ -550,16 +428,18 @@ def generate_intelligence(
         ],
     )
 
-    if not response.choices:
-        raise RuntimeError(
-            "Groq returned no choices."
-        )
-
-    message = response.choices[0].message
-
     text = (
-        message.content or ""
-    ).strip()
+        response
+        .choices[0]
+        .message
+        .content
+        .strip()
+    )
+
+    if not text:
+        raise RuntimeError(
+            "Groq returned an empty response."
+        )
 
     if len(text) < 100:
         raise RuntimeError(
@@ -567,7 +447,39 @@ def generate_intelligence(
         )
 
     # -----------------------------------------------------
-    # SOURCES
+    # Extract the draft so we can verify its length.
+    # -----------------------------------------------------
+
+    draft = extract_section(
+        text,
+        "DRAFT:",
+        "SOURCES:",
+    )
+
+    if draft:
+        draft_length = len(
+            draft.strip()
+        )
+
+        logger.info(
+            "Generated draft length: %d characters",
+            draft_length,
+        )
+
+        if draft_length > MAX_DRAFT_CHARACTERS:
+            logger.warning(
+                "Generated draft exceeds %d characters.",
+                MAX_DRAFT_CHARACTERS,
+            )
+
+            text = regenerate_shorter(
+                research,
+                request_type,
+                text,
+            )
+
+    # -----------------------------------------------------
+    # Append source URLs once.
     # -----------------------------------------------------
 
     sources = []
@@ -584,92 +496,138 @@ def generate_intelligence(
         if url and url not in sources:
             sources.append(url)
 
-    # Avoid duplicating sources if the model already returned
-    # a SOURCES section containing the same URLs.
+    if sources and "\nSOURCES\n" not in text:
+        text += "\n\nSOURCES\n"
 
-    if sources:
-        existing_sources = []
-
-        for line in text.splitlines():
-            stripped = line.strip()
-
-            if stripped.startswith(
-                "http://"
-            ) or stripped.startswith(
-                "https://"
-            ):
-                existing_sources.append(
-                    stripped
-                )
-
-        missing_sources = [
-            url
-            for url in sources
-            if url not in existing_sources
-        ]
-
-        if missing_sources:
-            text += "\n\nSOURCES\n"
-
-            for index, url in enumerate(
-                missing_sources,
-                start=1,
-            ):
-                text += (
-                    f"{index}. {url}\n"
-                )
+        for index, url in enumerate(
+            sources,
+            start=1,
+        ):
+            text += f"{index}. {url}\n"
 
     return text
 
 
 # ---------------------------------------------------------
-# DIRECT TEST
+# SECTION EXTRACTION
 # ---------------------------------------------------------
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO
+def extract_section(
+    text,
+    start_marker,
+    end_marker=None,
+):
+    start_index = text.find(
+        start_marker
     )
 
-    print(
-        "writer.py loaded successfully."
+    if start_index == -1:
+        return ""
+
+    start_index += len(
+        start_marker
     )
 
-    print(
-        f"GROQ_MODEL: {GROQ_MODEL}"
+    if end_marker:
+        end_index = text.find(
+            end_marker,
+            start_index,
+        )
+
+        if end_index == -1:
+            section = text[start_index:]
+        else:
+            section = text[
+                start_index:end_index
+            ]
+    else:
+        section = text[start_index:]
+
+    return section.strip()
+
+
+# ---------------------------------------------------------
+# REGENERATE OVER-LENGTH DRAFT
+# ---------------------------------------------------------
+
+def regenerate_shorter(
+    research,
+    request_type,
+    previous_response,
+):
+    draft = extract_section(
+        previous_response,
+        "DRAFT:",
+        "SOURCES:",
     )
 
-    print(
-        f"MIN_DRAFT_CHARACTERS: "
-        f"{MIN_DRAFT_CHARACTERS}"
+    if not draft:
+        return previous_response
+
+    prompt = f"""
+Rewrite the following social-media draft.
+
+Keep the core idea and factual claims.
+
+Make it shorter and complete.
+
+Maximum length: {MAX_DRAFT_CHARACTERS} characters.
+
+There is no minimum length.
+
+Do not simply cut the text at the character limit.
+
+Rewrite it naturally so the final thought is complete.
+
+Do not add explanations.
+
+Return ONLY the rewritten draft.
+
+DRAFT:
+
+{draft}
+"""
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.65,
+        max_tokens=700,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Rewrite social-media drafts naturally "
+                    "while preserving factual accuracy."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
     )
 
-    print(
-        f"MAX_DRAFT_CHARACTERS: "
-        f"{MAX_DRAFT_CHARACTERS}"
+    shorter = (
+        response
+        .choices[0]
+        .message
+        .content
+        .strip()
     )
 
-    profile = load_writer_profile()
+    if not shorter:
+        return previous_response
 
-    print(
-        "\nWriter profile files:"
-    )
+    if len(shorter) > MAX_DRAFT_CHARACTERS:
+        logger.warning(
+            "Second-pass draft still exceeds character limit: %d",
+            len(shorter),
+        )
 
-    print(
-        f"examples: "
-        f"{'loaded' if profile['examples'] else 'empty'}"
-    )
+        return previous_response
 
-    print(
-        f"patterns: "
-        f"{'loaded' if profile['patterns'] else 'empty'}"
-    )
-
-    print(
-        f"rules: "
-        f"{'loaded' if profile['rules'] else 'empty'}"
-    )
-
-    print(
-        "\nWriter is ready."
+    return previous_response.replace(
+        draft,
+        shorter,
+        1,
     )
