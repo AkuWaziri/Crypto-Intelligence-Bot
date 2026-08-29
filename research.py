@@ -1,5 +1,4 @@
 import logging
-import re
 import requests
 
 from config import EXA_API_KEY, MAX_RESEARCH_RESULTS
@@ -10,7 +9,19 @@ EXA_URL = "https://api.exa.ai/search"
 
 
 # ---------------------------------------------------------
-# CRYPTO RELEVANCE
+# OBVIOUSLY IRRELEVANT CONTENT
+# ---------------------------------------------------------
+
+LOW_VALUE_TERMS = [
+    "casino",
+    "gambling",
+    "horoscope",
+    "celebrity gossip",
+]
+
+
+# ---------------------------------------------------------
+# CRYPTO RELEVANCE TERMS
 # ---------------------------------------------------------
 
 CRYPTO_TERMS = [
@@ -49,20 +60,9 @@ CRYPTO_TERMS = [
     "liquidity",
     "bridge",
     "perpetual",
-    "stablecoin",
-]
-
-
-# ---------------------------------------------------------
-# GENERIC / LOW-VALUE TERMS
-# ---------------------------------------------------------
-
-LOW_VALUE_TERMS = [
-    "sponsored",
-    "casino",
-    "gambling",
-    "horoscope",
-    "celebrity gossip",
+    "trading",
+    "exchange",
+    "defi",
 ]
 
 
@@ -72,28 +72,40 @@ LOW_VALUE_TERMS = [
 
 def is_crypto_relevant(result):
     """
-    Keep results that have meaningful crypto/Web3 relevance.
+    Determine whether a result is reasonably related
+    to crypto/Web3.
+
+    We intentionally keep this filter permissive.
+    Exa is responsible for discovery; the writer can
+    determine whether a result is actually useful.
     """
 
-    title = str(result.get("title", ""))
-    content = str(result.get("content", ""))
+    title = str(
+        result.get("title", "")
+    )
 
-    text = f"{title} {content}".lower()
+    content = str(
+        result.get("content", "")
+    )
 
-    if any(term in text for term in LOW_VALUE_TERMS):
-        return False
+    text = (
+        f"{title} {content}"
+    ).lower()
 
-    matches = 0
+    # Reject obvious non-crypto / low-value material.
+    for term in LOW_VALUE_TERMS:
+        if term in text:
+            return False
 
+    # Accept if any known crypto term appears.
     for term in CRYPTO_TERMS:
-        if re.search(
-            rf"\b{re.escape(term)}\b",
-            text,
-            flags=re.IGNORECASE,
-        ):
-            matches += 1
+        if term.lower() in text:
+            return True
 
-    return matches >= 1
+    # If Exa returned a result for a targeted crypto query,
+    # don't automatically discard it just because the page
+    # itself uses different terminology.
+    return True
 
 
 # ---------------------------------------------------------
@@ -128,7 +140,7 @@ def normalize_result(item):
 
 
 # ---------------------------------------------------------
-# DEDUPLICATION
+# DEDUPLICATE RESULTS
 # ---------------------------------------------------------
 
 def deduplicate_results(results):
@@ -143,8 +155,17 @@ def deduplicate_results(results):
 
     for result in results:
 
-        url = result.get("url", "").strip().lower()
-        title = result.get("title", "").strip().lower()
+        url = (
+            result.get("url", "")
+            .strip()
+            .lower()
+        )
+
+        title = (
+            result.get("title", "")
+            .strip()
+            .lower()
+        )
 
         if url and url in seen_urls:
             continue
@@ -164,7 +185,7 @@ def deduplicate_results(results):
 
 
 # ---------------------------------------------------------
-# WEB SEARCH
+# EXA SEARCH
 # ---------------------------------------------------------
 
 def search_web(
@@ -172,8 +193,11 @@ def search_web(
     max_results: int = MAX_RESEARCH_RESULTS,
 ):
     """
-    Search the web using Exa and return crypto-relevant
-    research material for the intelligence writer.
+    Search the web using Exa.
+
+    The research layer discovers current information.
+    The writer is responsible for turning the discoveries
+    into useful crypto intelligence.
     """
 
     if not EXA_API_KEY:
@@ -181,7 +205,9 @@ def search_web(
             "EXA_API_KEY is missing."
         )
 
-    query = str(query).strip()
+    query = str(
+        query
+    ).strip()
 
     if not query:
         raise ValueError(
@@ -245,14 +271,16 @@ def search_web(
         ):
             continue
 
-        results.append(result)
+        results.append(
+            result
+        )
 
     results = deduplicate_results(
         results
     )
 
     logger.info(
-        "Crypto-relevant results: %s",
+        "Research results retained: %s",
         len(results),
     )
 
@@ -264,7 +292,7 @@ def search_web(
 
 
 # ---------------------------------------------------------
-# SOURCE FORMATTING
+# FORMAT SOURCES
 # ---------------------------------------------------------
 
 def format_sources(research):
@@ -290,10 +318,13 @@ def format_sources(research):
             or "Untitled"
         )
 
-        url = result.get(
-            "url",
-            ""
-        )
+        url = (
+            result.get(
+                "url",
+                ""
+            )
+            or ""
+        ).strip()
 
         if not url:
             continue
@@ -302,4 +333,6 @@ def format_sources(research):
             f"{index}. {title}\n{url}"
         )
 
-    return "\n\n".join(lines)
+    return "\n\n".join(
+        lines
+    )
