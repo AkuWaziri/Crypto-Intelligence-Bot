@@ -63,12 +63,14 @@ def clean_model_text(text: str) -> str:
 
     text = text.replace("```", "")
 
+    # Remove malformed citation artifacts.
     text = re.sub(
-        r"ã€\d+(?:â€ [^ã€‘]*)?ã€‘",
+        r"ã€\d+(?:â€[^ã€‘]*)?ã€‘",
         "",
         text,
     )
 
+    # Remove markdown hyperlinks while preserving visible text.
     text = re.sub(
         r"\[([^\]]+)\]\([^)]+\)",
         r"\1",
@@ -181,10 +183,11 @@ def draft_looks_cut_off(draft: str) -> bool:
         ",",
         ":",
         "-",
-        "â€“",
-        "â€”",
+        "–",
+        "—",
         "(",
         "[",
+        "...",
     )
 
     if lower.endswith(unfinished_endings):
@@ -210,8 +213,7 @@ def build_research_text(research):
         content = result.get("content", "").strip()
         url = result.get("url", "").strip()
 
-        # Keep the writer prompt compact.
-        # We do not need the full article content.
+        # Keep the prompt compact to reduce token consumption.
         compact_content = content[:1000]
 
         sources.append(
@@ -246,22 +248,22 @@ def build_prompt(
 
     if retry:
         retry_instruction = f"""
-RETRY INSTRUCTION:
+RETRY INSTRUCTION
 
-The previous draft failed validation.
+The previous DRAFT failed validation.
 
-Write a new draft.
+Write a completely new DRAFT.
 
-The new DRAFT must be no more than
-{draft_max} characters.
+Maximum length: {draft_max} characters.
 
-It must be a complete thought.
+Make it shorter if necessary.
 
-Never end mid-sentence.
+The DRAFT MUST finish naturally.
 
-Do not pad the draft.
+Do not end with an incomplete sentence,
+unfinished thought, unfinished list, or "...".
 
-Do not explain that you are retrying.
+Do not explain the retry.
 """
 
     return f"""
@@ -287,7 +289,7 @@ Determine:
 - what is surprising
 - what is changing
 - what people may be overlooking
-- what the second-order implications could be
+- what second-order implications could matter
 - whether there is a meaningful opportunity
 - whether there is a meaningful risk
 - whether the story is bullish, bearish, neutral, skeptical,
@@ -319,7 +321,7 @@ RESPONSIBILITY 2 — CREATOR CONTENT STRATEGY
 Determine the SINGLE strongest content angle a crypto creator
 could use.
 
-CONTENT ANGLE is NOT a summary.
+CONTENT ANGLE is NOT a summary of the research.
 
 It is a professional recommendation telling the creator:
 
@@ -328,11 +330,12 @@ It is a professional recommendation telling the creator:
 - what part of the story deserves attention
 - what evidence or examples to emphasize
 - what the reader should understand
+- what direction the creator can take if expanding the post
 
 The CONTENT ANGLE should be useful even if the creator later
-rewrites the DRAFT using another writing tool.
+rewrites or expands the DRAFT using another writing tool.
 
-Examples of strong angles:
+A strong content angle can be:
 
 - contrarian observation
 - overlooked implication
@@ -441,65 +444,87 @@ The scope of the conclusion must match the scope of the research.
 
 DRAFT REQUIREMENTS
 
-The DRAFT must be no more than {draft_max} characters.
+The DRAFT is a short content starting point, not a full article.
 
-There is NO minimum draft length.
+Maximum length: {draft_max} characters.
 
-A short draft is acceptable.
+There is NO minimum length.
 
-Do NOT pad the DRAFT.
+The priority order is:
 
-The DRAFT must communicate the strongest useful idea
-from the research.
+1. COMPLETE THOUGHT
+2. STRONG IDEA
+3. NATURAL WRITING
+4. CHARACTER LIMIT
 
-The DRAFT should feel like a real social-media post,
-not a research report.
+A complete 250-character draft is better than an incomplete
+{draft_max}-character draft.
 
-Do not simply repeat the CONTENT ANGLE.
+A complete 150-character draft is better than a cut-off
+{draft_max}-character draft.
 
-Do not mention "the research" or "the sources" inside the DRAFT.
+NEVER cut the DRAFT off simply because the character limit
+is approaching.
 
-Do not begin every post with the same hook.
+NEVER end the DRAFT with:
 
-Choose the opening based on the actual subject.
+- an unfinished sentence
+- an unfinished list
+- an unfinished argument
+- "..."
+- a dangling conjunction such as "and", "but", "because",
+  "while", "which", "that", "with", or "so"
+- a colon introducing information that never follows
 
-Possible openings:
+If the idea is too large for the character limit, COMPRESS IT.
 
-- direct observation
-- surprising fact
-- strong opinion
-- question
-- contrast
-- blunt statement
-- unusual detail
-- practical takeaway
+Remove secondary facts before removing the ending.
 
-Avoid generic AI openings such as:
+Do not try to squeeze every important fact into the DRAFT.
 
-"Here's an interesting..."
+The DRAFT should communicate ONE strong idea clearly.
 
-"According to..."
+For /feed:
 
-"Breaking..."
+The DRAFT is an intelligence clue of no more than
+350 characters.
 
-"Today I discovered..."
+It should give the creator a useful starting point that can
+be expanded later.
 
-"In the ever-evolving world of..."
+For /create:
 
-MOST IMPORTANT:
+The DRAFT is a concise ready-to-develop content starting point
+of no more than 410 characters.
 
-The DRAFT must finish naturally.
+For /research:
 
-Never deliberately cut a sentence in half.
+The DRAFT is a concise researched content starting point
+of no more than 410 characters.
 
-Never stop mid-list.
+The CONTENT ANGLE should carry the deeper context, evidence,
+perspective and development direction.
 
-Never end with an incomplete thought.
+The DRAFT itself does NOT need to contain everything.
 
 If the character limit is approaching, make the idea shorter.
 
-The CONTENT ANGLE contains the deeper direction that the
-creator can use to expand the idea elsewhere.
+Do NOT sacrifice completion to include another fact.
+
+Before returning the answer, silently check:
+
+- Is the final sentence complete?
+- Is the thought complete?
+- Does the ending read naturally?
+- Is there any unfinished list?
+- Is there any trailing conjunction?
+- Is there an ellipsis?
+- Is the DRAFT within the character limit?
+
+If any answer is NO, rewrite the DRAFT shorter until all
+conditions are satisfied.
+
+Do not explain this validation process in the output.
 
 {retry_instruction}
 
@@ -515,7 +540,7 @@ CONTENT ANGLE:
 write and what perspective to take>
 
 DRAFT:
-<complete ready-to-post social-media draft>
+<complete ready-to-post or ready-to-develop social-media draft>
 
 SOURCES:
 <plain source URLs, one per line>
@@ -550,7 +575,7 @@ def call_writer(
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=0.75,
-        max_tokens=500,
+        max_tokens=700,
         messages=[
             {
                 "role": "system",
