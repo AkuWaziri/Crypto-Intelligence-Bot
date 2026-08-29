@@ -165,6 +165,63 @@ async def research_command(
             f"Error: {html.escape(str(exc))}",
             parse_mode=ParseMode.HTML,
         )
+async def create_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    if not context.args:
+        await update.message.reply_text(
+            "Usage:\n"
+            "/create <what you want to create>\n\n"
+            "Examples:\n"
+            "/create explain ERC-8196\n"
+            "/create break down Binance Agent OS\n"
+            "/create make a guide to using Base\n"
+            "/create find an interesting AI agent topic\n"
+            "/create give me a contrarian crypto idea"
+        )
+        return
+
+    request = " ".join(context.args).strip()
+
+    status = await update.message.reply_text(
+        "✍️ Researching and creating your content..."
+    )
+
+    try:
+        research = await asyncio.to_thread(
+            search_web,
+            request,
+        )
+
+        if not research.get("results"):
+            await status.edit_text(
+                "❌ I couldn't find enough useful information "
+                "to create a strong post."
+            )
+            return
+
+        intelligence = await asyncio.to_thread(
+            generate_intelligence,
+            research,
+            "create",
+        )
+
+        await status.delete()
+
+        await send_long_message(
+            update,
+            intelligence,
+        )
+
+    except Exception as exc:
+        logger.exception("Create failed.")
+
+        await status.edit_text(
+            "❌ Create failed.\n\n"
+            f"Error: {html.escape(str(exc))}",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 async def feed_command(
@@ -275,6 +332,9 @@ def main():
 
     application.add_handler(
         CommandHandler("start", start)
+    )
+    application.add_handler(
+        CommandHandler("create", create_command)
     )
 
     application.add_handler(

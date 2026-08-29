@@ -10,6 +10,7 @@ from config import (
     WRITER_PROFILE_DIR,
     MIN_DRAFT_CHARACTERS,
     MAX_DRAFT_CHARACTERS,
+    MAX_FEED_DRAFT_CHARACTERS,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,13 +19,20 @@ client = Groq(api_key=GROQ_API_KEY)
 
 
 def read_profile_file(filename: str) -> str:
-    path = os.path.join(WRITER_PROFILE_DIR, filename)
+    path = os.path.join(
+        WRITER_PROFILE_DIR,
+        filename,
+    )
 
     if not os.path.exists(path):
         return ""
 
     try:
-        with open(path, "r", encoding="utf-8") as file:
+        with open(
+            path,
+            "r",
+            encoding="utf-8",
+        ) as file:
             return file.read()
     except Exception:
         logger.exception(
@@ -46,23 +54,21 @@ def clean_model_text(text: str) -> str:
     if not text:
         return ""
 
-    # Remove code fences.
     text = re.sub(
         r"```(?:text|markdown|json)?",
         "",
         text,
         flags=re.IGNORECASE,
     )
+
     text = text.replace("```", "")
 
-    # Remove AI citation artifacts.
     text = re.sub(
-        r"【\d+(?:†[^】]*)?】",
+        r"ã€\d+(?:â€ [^ã€‘]*)?ã€‘",
         "",
         text,
     )
 
-    # Remove markdown hyperlinks while preserving visible text.
     text = re.sub(
         r"\[([^\]]+)\]\([^)]+\)",
         r"\1",
@@ -175,8 +181,8 @@ def draft_looks_cut_off(draft: str) -> bool:
         ",",
         ":",
         "-",
-        "–",
-        "—",
+        "â€“",
+        "â€”",
         "(",
         "[",
     )
@@ -204,14 +210,25 @@ def build_research_text(research):
         content = result.get("content", "").strip()
         url = result.get("url", "").strip()
 
+        # Keep the writer prompt compact.
+        # We do not need the full article content.
+        compact_content = content[:1000]
+
         sources.append(
             f"SOURCE {index}\n"
             f"TITLE: {title}\n"
-            f"CONTENT: {content[:2000]}\n"
+            f"CONTENT: {compact_content}\n"
             f"URL: {url}"
         )
 
     return "\n\n".join(sources)
+
+
+def get_draft_max(request_type):
+    if request_type == "feed":
+        return MAX_FEED_DRAFT_CHARACTERS
+
+    return MAX_DRAFT_CHARACTERS
 
 
 def build_prompt(
@@ -223,50 +240,44 @@ def build_prompt(
 
     sources_text = build_research_text(research)
 
-    if request_type == "create":
-        draft_requirement = f"""
-The DRAFT can be between 0 and {MAX_DRAFT_CHARACTERS} characters.
-
-Do not make it longer just to fill space.
-
-Choose the natural length for the idea.
-
-A concise strong post is better than padded writing.
-"""
-    else:
-        draft_requirement = f"""
-The DRAFT MUST be between
-{MIN_DRAFT_CHARACTERS} and {MAX_DRAFT_CHARACTERS} characters.
-
-Do not pad the draft with unnecessary information.
-"""
+    draft_max = get_draft_max(request_type)
 
     retry_instruction = ""
 
     if retry:
-        retry_instruction = """
+        retry_instruction = f"""
 RETRY INSTRUCTION:
 
-The previous draft appeared to end before the thought was complete.
+The previous draft failed validation.
 
-Write a new, complete draft.
+Write a new draft.
 
-Make sure every sentence is finished.
-Do not end on a fragment.
-Do not stop in the middle of a list or argument.
+The new DRAFT must be no more than
+{draft_max} characters.
+
+It must be a complete thought.
+
+Never end mid-sentence.
+
+Do not pad the draft.
+
+Do not explain that you are retrying.
 """
 
     return f"""
 You are a senior crypto research editor and content strategist.
 
-Your job is to transform current research into a strong,
-fact-grounded content opportunity for a crypto content creator.
+Your job is to transform current research into useful,
+fact-grounded content intelligence for a crypto creator.
 
-You have TWO separate responsibilities.
+REQUEST TYPE:
+{request_type}
+
+You have TWO responsibilities.
 
 RESPONSIBILITY 1 — EDITORIAL INTELLIGENCE
 
-First understand what the research actually says.
+Understand what the research actually establishes.
 
 Determine:
 
@@ -277,11 +288,10 @@ Determine:
 - what is changing
 - what people may be overlooking
 - what the second-order implications could be
-- whether there is a real opportunity
+- whether there is a meaningful opportunity
 - whether there is a meaningful risk
-- whether the story is bullish, bearish, neutral, skeptical, funny,
-  controversial, educational, practical or simply interesting
-- whether the research deserves a post at all
+- whether the story is bullish, bearish, neutral, skeptical,
+  funny, controversial, educational, practical or simply interesting
 
 Do NOT force every story into a bullish opportunity.
 
@@ -291,12 +301,12 @@ Do NOT manufacture urgency.
 
 Do NOT manufacture controversy.
 
-Do NOT manufacture a creator opportunity if the evidence does not
-support one.
+Do NOT manufacture a creator opportunity when the evidence
+does not support one.
 
 The research determines the editorial stance.
 
-If the evidence is weak or speculative, make that clear.
+If evidence is weak or speculative, say so.
 
 If something is confirmed, distinguish it from speculation.
 
@@ -306,106 +316,68 @@ Never invent information.
 
 RESPONSIBILITY 2 — CREATOR CONTENT STRATEGY
 
-After understanding the research, determine the SINGLE strongest
-content angle a crypto creator could use.
+Determine the SINGLE strongest content angle a crypto creator
+could use.
 
-CONTENT ANGLE is NOT a summary of the research.
+CONTENT ANGLE is NOT a summary.
 
-CONTENT ANGLE is a professional recommendation telling the creator
-WHAT KIND OF POST TO WRITE and WHAT PERSPECTIVE TO TAKE.
+It is a professional recommendation telling the creator:
 
-A strong content angle can be:
+- what to write
+- what perspective to take
+- what part of the story deserves attention
+- what evidence or examples to emphasize
+- what the reader should understand
 
-- a contrarian observation
-- an overlooked implication
-- a practical explainer
-- a comparison
-- a warning
-- a market thesis
-- a creator-focused opportunity
-- a builder-focused opportunity
-- a user-focused observation
-- a question or debate
-- a surprising fact
-- a case study
-- a "why this matters" narrative
-- a trend analysis
-- a personal-perspective-style post, without inventing personal
-  experiences
-- an actionable post
-- a skeptical take
-- a bullish thesis when genuinely justified
+The CONTENT ANGLE should be useful even if the creator later
+rewrites the DRAFT using another writing tool.
 
-The CONTENT ANGLE should answer:
+Examples of strong angles:
 
-"What should I, as a crypto content creator, actually write about
-from this research?"
+- contrarian observation
+- overlooked implication
+- practical explainer
+- comparison
+- warning
+- market thesis
+- builder opportunity
+- user-focused observation
+- case study
+- actionable post
+- skeptical take
+- trend analysis
+- surprising fact
+- debate/question
 
-Make it specific enough that the creator immediately understands
-the post they should write.
+Do NOT automatically recommend:
 
-Bad:
+"first mover advantage"
 
-"Write about AI agents and crypto."
+"start building now"
 
-Better:
+"this is a game changer"
 
-"Write a contrarian post questioning whether AI agents are actually
-ready to control wallets, using the gap between autonomous decision
-making and transaction security as the central argument."
+"the future is here"
 
-Bad:
-
-"Talk about crypto payments."
-
-Better:
-
-"Write a practical comparison showing how the new payment tools remove
-different merchant barriers, then focus on the overlooked settlement
-and compliance decisions merchants still have to make."
-
-Do NOT automatically recommend "first mover advantage."
-
-Do NOT automatically recommend "start building now."
-
-Do NOT automatically recommend "this is a game changer."
-
-Only use those ideas when the research genuinely supports them.
+Only use such framing when the research genuinely supports it.
 
 WRITING PROFILE
 
-The writing profile describes HOW the creator naturally writes.
+The profile describes HOW the creator naturally writes.
 
-It does NOT determine the editorial conclusion.
+Use it flexibly.
 
-Do not mechanically reproduce the examples.
+Do not mechanically copy examples.
 
 Do not repeatedly use the same hooks.
 
 Do not repeatedly use the same paragraph structure.
 
-Do not force all-caps into every post.
+Do not force slang.
 
-Do not force slang into every post.
+Do not force all-caps.
 
 Do not deliberately insert mistakes.
-
-Use the profile as a flexible understanding of:
-
-- tone
-- rhythm
-- sentence length
-- paragraph spacing
-- vocabulary
-- confidence
-- directness
-- use of numbers
-- use of questions
-- use of contrasts
-- use of lists
-- capitalization
-- punctuation
-- natural conversational patterns
 
 Different subjects should produce different writing.
 
@@ -415,8 +387,8 @@ The research determines the stance.
 
 The writing profile influences the expression.
 
-Never copy complete sentences or distinctive phrases from the
-examples.
+Never copy complete sentences or distinctive phrases
+from the examples.
 
 Never invent personal experiences.
 
@@ -442,97 +414,92 @@ Only make factual claims supported by the supplied research.
 
 Do not add facts merely because they sound plausible.
 
-Do not assume a company has launched something if the source only
-describes a possibility.
+Do not assume a company launched something if the sources
+only describe a possibility.
 
 Do not convert "potential" into "confirmed."
 
-Do not make price, funding, user-count, adoption, launch or
-performance claims unless supported.
+Do not make price, funding, user-count, adoption, launch,
+performance or security claims unless supported.
 
 Do not predict financial outcomes as facts.
 
-Do not claim something is "live", "new", "confirmed", "official",
-"guaranteed" or "already happening" unless the research supports it.
+Do not claim something is live, new, confirmed, official,
+guaranteed or already happening unless the research supports it.
 
-If the research contains conflicting information, reflect the
-uncertainty.
+If sources conflict, reflect the uncertainty.
 
-Be especially careful with absolute or universal claims.
+Be especially careful with absolute claims.
 
-Do not claim that nobody, no project, no protocol, no company, or
-nothing has done something unless the supplied research explicitly
-establishes that.
+Do not claim that nobody, no project, no protocol, no company,
+or nothing has done something unless the supplied research
+explicitly establishes that.
 
-Avoid unsupported claims such as:
+Do not turn absence of evidence into evidence of absence.
 
-"No one is doing this."
-"No protocol has this."
-"This is the first."
-"Nothing like this exists."
-"Everyone is adopting this."
-"This guarantees..."
-"This will definitely..."
+The scope of the conclusion must match the scope of the research.
 
-When evidence is incomplete, use precise language such as:
-
-"So far, the supplied research shows..."
-"The sources reviewed here do not show..."
-"This appears to be early..."
-"The evidence points toward..."
-"At least from these sources..."
-
-Do not turn an absence of evidence into evidence of absence.
-The scope of your conclusion must match the scope of the research.
-
-If the supplied sources only describe a technology, do not use them
-to make claims about industry-wide adoption, availability, deployment,
-market size, or the absence of competing implementations.
-
-Instead say what the sources actually establish and identify what
-they do not establish.
-
-Never use a limited source set to make a broad industry conclusion.
-
-Do not invent personal testing, conversations, experiences or results.
 DRAFT REQUIREMENTS
 
-The draft should feel like a real social-media post written by the
-creator, not a research report.
+The DRAFT must be no more than {draft_max} characters.
 
-Do not write a generic news summary.
+There is NO minimum draft length.
+
+A short draft is acceptable.
+
+Do NOT pad the DRAFT.
+
+The DRAFT must communicate the strongest useful idea
+from the research.
+
+The DRAFT should feel like a real social-media post,
+not a research report.
 
 Do not simply repeat the CONTENT ANGLE.
 
-Do not mention "the research" or "the sources" inside the draft.
+Do not mention "the research" or "the sources" inside the DRAFT.
 
 Do not begin every post with the same hook.
 
 Choose the opening based on the actual subject.
 
-Possible openings include:
+Possible openings:
 
-- a direct observation
-- a surprising fact
-- a strong opinion
-- a question
-- a personal-style observation without inventing experience
-- a contrast
-- a blunt statement
-- a short setup
-- an unusual detail
+- direct observation
+- surprising fact
+- strong opinion
+- question
+- contrast
+- blunt statement
+- unusual detail
+- practical takeaway
 
-Do not use generic AI openings such as:
+Avoid generic AI openings such as:
 
 "Here's an interesting..."
+
 "According to..."
+
 "Breaking..."
+
 "Today I discovered..."
+
 "In the ever-evolving world of..."
 
-{draft_requirement}
+MOST IMPORTANT:
 
-Never cut the draft off mid-sentence.
+The DRAFT must finish naturally.
+
+Never deliberately cut a sentence in half.
+
+Never stop mid-list.
+
+Never end with an incomplete thought.
+
+If the character limit is approaching, make the idea shorter.
+
+The CONTENT ANGLE contains the deeper direction that the
+creator can use to expand the idea elsewhere.
 
 {retry_instruction}
 
@@ -541,10 +508,10 @@ OUTPUT FORMAT
 Return ONLY these four sections:
 
 CATEGORY:
-<short, accurate category>
+<short accurate category>
 
 CONTENT ANGLE:
-<professional recommendation for what content the creator should
+<professional recommendation for what the creator should
 write and what perspective to take>
 
 DRAFT:
@@ -563,16 +530,9 @@ EDITORIAL JUDGMENT:
 FACT CHECK:
 NOTES:
 
-Do not include citation markers such as:
-
-【1†...】
-
-inside the draft.
+Do not include citation markers inside the DRAFT.
 
 Do not use markdown links in the DRAFT.
-
-REQUEST TYPE:
-{request_type}
 """
 
 
@@ -590,13 +550,13 @@ def call_writer(
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=0.75,
-        max_tokens=1400,
+        max_tokens=500,
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "You are a senior crypto research editor and "
-                    "content strategist. "
+                    "You are a senior crypto research editor "
+                    "and content strategist. "
                     "Be fact-grounded, editorially intelligent, "
                     "adaptive and concise. "
                     "Always complete the requested draft."
@@ -668,6 +628,7 @@ def format_output(
 
     return output.strip(), draft
 
+
 def generate_intelligence(
     research,
     request_type="feed",
@@ -677,7 +638,8 @@ def generate_intelligence(
             "GROQ_API_KEY is missing."
         )
 
-    # First generation.
+    draft_max = get_draft_max(request_type)
+
     model_text = call_writer(
         research,
         request_type=request_type,
@@ -689,17 +651,17 @@ def generate_intelligence(
         research,
     )
 
-    # Retry if the draft appears incomplete,
-    # too short, or too long.
     needs_retry = (
         draft_looks_cut_off(draft)
-        or len(draft) < MIN_DRAFT_CHARACTERS
-        or len(draft) > MAX_DRAFT_CHARACTERS
+        or len(draft) > draft_max
     )
 
     if needs_retry:
         logger.warning(
-            "Generated draft failed validation."
+            "Generated draft failed validation. "
+            "Length: %d. Maximum: %d.",
+            len(draft),
+            draft_max,
         )
 
         model_text = call_writer(
@@ -713,23 +675,16 @@ def generate_intelligence(
             research,
         )
 
-    # If the retry still fails, return the result
-    # rather than modifying or truncating the draft.
     if draft_looks_cut_off(draft):
-        logger.warning(
-            "Final draft still appears incomplete."
+        raise RuntimeError(
+            "Generated draft appears incomplete."
         )
 
-    if len(draft) < MIN_DRAFT_CHARACTERS:
-        logger.warning(
-            "Final draft is below configured minimum: %d characters.",
-            len(draft),
-        )
-
-    if len(draft) > MAX_DRAFT_CHARACTERS:
-        logger.warning(
-            "Final draft exceeds configured maximum: %d characters.",
-            len(draft),
+    if len(draft) > draft_max:
+        raise RuntimeError(
+            f"Generated draft is too long: "
+            f"{len(draft)} characters. "
+            f"Maximum allowed: {draft_max}."
         )
 
     return output
