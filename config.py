@@ -12,7 +12,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 RESEARCH_INTERVAL_MINUTES = int(
-    os.getenv("RESEARCH_INTERVAL_MINUTES", "45")
+    os.getenv("RESEARCH_INTERVAL_MINUTES", "30")
 )
 
 MAX_RESEARCH_RESULTS = int(
