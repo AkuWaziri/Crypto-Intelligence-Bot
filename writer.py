@@ -668,7 +668,6 @@ def format_output(
 
     return output.strip(), draft
 
-
 def generate_intelligence(
     research,
     request_type="feed",
@@ -690,10 +689,17 @@ def generate_intelligence(
         research,
     )
 
-    # Retry if the draft appears to be incomplete.
-    if draft_looks_cut_off(draft):
+    # Retry if the draft appears incomplete,
+    # too short, or too long.
+    needs_retry = (
+        draft_looks_cut_off(draft)
+        or len(draft) < MIN_DRAFT_CHARACTERS
+        or len(draft) > MAX_DRAFT_CHARACTERS
+    )
+
+    if needs_retry:
         logger.warning(
-            "Draft appears incomplete. Retrying writer once."
+            "Generated draft failed validation."
         )
 
         model_text = call_writer(
@@ -707,19 +713,22 @@ def generate_intelligence(
             research,
         )
 
-    # Feed/research drafts have a configured minimum.
-    if request_type != "create":
-        if len(draft) < MIN_DRAFT_CHARACTERS:
-            logger.warning(
-                "Draft is below configured minimum: %d characters.",
-                len(draft),
-            )
+    # If the retry still fails, return the result
+    # rather than modifying or truncating the draft.
+    if draft_looks_cut_off(draft):
+        logger.warning(
+            "Final draft still appears incomplete."
+        )
 
-    # Never silently alter the creator's draft to fit the limit.
-    # The model is instructed to stay within the configured range.
+    if len(draft) < MIN_DRAFT_CHARACTERS:
+        logger.warning(
+            "Final draft is below configured minimum: %d characters.",
+            len(draft),
+        )
+
     if len(draft) > MAX_DRAFT_CHARACTERS:
         logger.warning(
-            "Draft exceeds configured maximum: %d characters.",
+            "Final draft exceeds configured maximum: %d characters.",
             len(draft),
         )
 
