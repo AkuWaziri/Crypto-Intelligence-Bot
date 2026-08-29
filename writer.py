@@ -1,5 +1,5 @@
 import os
-import json
+import re
 import logging
 
 from groq import Groq
@@ -8,6 +8,7 @@ from config import (
     GROQ_API_KEY,
     GROQ_MODEL,
     WRITER_PROFILE_DIR,
+    MIN_DRAFT_CHARACTERS,
     MAX_DRAFT_CHARACTERS,
 )
 
@@ -16,27 +17,15 @@ logger = logging.getLogger(__name__)
 client = Groq(api_key=GROQ_API_KEY)
 
 
-# ---------------------------------------------------------
-# WRITING PROFILE
-# ---------------------------------------------------------
-
 def read_profile_file(filename: str) -> str:
-    path = os.path.join(
-        WRITER_PROFILE_DIR,
-        filename,
-    )
+    path = os.path.join(WRITER_PROFILE_DIR, filename)
 
     if not os.path.exists(path):
         return ""
 
     try:
-        with open(
-            path,
-            "r",
-            encoding="utf-8",
-        ) as file:
+        with open(path, "r", encoding="utf-8") as file:
             return file.read()
-
     except Exception:
         logger.exception(
             "Could not read writer profile file: %s",
@@ -53,31 +42,170 @@ def load_writer_profile():
     }
 
 
-# ---------------------------------------------------------
-# RESEARCH SOURCES
-# ---------------------------------------------------------
+def clean_model_text(text: str) -> str:
+    if not text:
+        return ""
 
-def build_sources(research):
+    # Remove markdown code fences.
+    text = re.sub(
+        r"```(?:text|markdown)?",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = text.replace("```", "")
+
+    # Remove citation artifacts.
+    text = re.sub(
+        r"【\d+(?:†[^】]*)?】",
+        "",
+        text,
+    )
+
+    # Remove markdown links but keep visible text.
+    text = re.sub(
+        r"\[([^\]]+)\]\([^)]+\)",
+        r"\1",
+        text,
+    )
+
+    return text.strip()
+
+
+def extract_section(text: str, section_name: str, next_sections):
+    pattern = (
+        rf"{re.escape(section_name)}\s*:\s*"
+        rf"(.*?)(?=\n\s*(?:"
+        + "|".join(re.escape(item) for item in next_sections)
+        + r")\s*:|\Z)"
+    )
+
+    match = re.search(
+        pattern,
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    if not match:
+        return ""
+
+    return match.group(1).strip()
+
+
+def parse_output(text: str):
+    text = clean_model_text(text)
+
+    category = extract_section(
+        text,
+        "CATEGORY",
+        [
+            "CONTENT ANGLE",
+            "DRAFT",
+            "SOURCES",
+        ],
+    )
+
+    content_angle = extract_section(
+        text,
+        "CONTENT ANGLE",
+        [
+            "DRAFT",
+            "SOURCES",
+        ],
+    )
+
+    draft = extract_section(
+        text,
+        "DRAFT",
+        [
+            "SOURCES",
+        ],
+    )
+
+    return {
+        "category": category,
+        "content_angle": content_angle,
+        "draft": draft,
+    }
+
+
+def draft_looks_cut_off(draft: str) -> bool:
+    if not draft:
+        return True
+
+    stripped = draft.strip()
+
+    if len(stripped) < 20:
+        return True
+
+    # Obvious unfinished endings.
+    bad_endings = (
+        " and",
+        " or",
+        " but",
+        " because",
+        " that",
+        " which",
+        " with",
+        " for",
+        " to",
+        " of",
+        " in",
+        " on",
+        " at",
+        " into",
+        " from",
+        " as",
+        " than",
+        " is",
+        " are",
+        " was",
+        " were",
+        " the",
+        " a",
+        " an",
+        ",",
+        ":",
+        "-",
+        "–",
+        "—",
+        "(",
+        "[",
+    )
+
+    lower = stripped.lower()
+
+    if lower.endswith(bad_endings):
+        return True
+
+    # Unclosed brackets.
+    if stripped.count("(") > stripped.count(")"):
+        return True
+
+    if stripped.count("[") > stripped.count("]"):
+        return True
+
+    # If the final character is a letter or number, it may still be
+    # perfectly valid, so don't automatically reject it.
+    return False
+
+
+def build_prompt(
+    research,
+    request_type="feed",
+    retry=False,
+):
+    profile = load_writer_profile()
+
     sources = []
 
     for index, result in enumerate(
         research.get("results", []),
         start=1,
     ):
-        title = result.get(
-            "title",
-            "",
-        ).strip()
-
-        content = result.get(
-            "content",
-            "",
-        ).strip()
-
-        url = result.get(
-            "url",
-            "",
-        ).strip()
+        title = result.get("title", "").strip()
+        content = result.get("content", "").strip()
+        url = result.get("url", "").strip()
 
         sources.append(
             f"SOURCE {index}\n"
@@ -86,147 +214,52 @@ def build_sources(research):
             f"URL: {url}"
         )
 
-    return "\n\n".join(sources)
+    sources_text = "\n\n".join(sources)
 
+    if request_type == "create":
+        draft_requirement = """
+The DRAFT may be anywhere from 0 to 1400 characters.
 
-# ---------------------------------------------------------
-# PROMPT
-# ---------------------------------------------------------
+Do not force the draft to be long.
 
-def build_prompt(
-    research,
-    request_type="feed",
-):
-    profile = load_writer_profile()
+Use the length that naturally fits the idea.
 
-    sources_text = build_sources(
-        research
-    )
+A short post is better than padded writing.
 
-    profile_text = f"""
-WRITING PATTERNS
-{profile["patterns"]}
+Never cut the draft off mid-sentence.
+"""
+    else:
+        draft_requirement = f"""
+The DRAFT MUST be between
+{MIN_DRAFT_CHARACTERS} and {MAX_DRAFT_CHARACTERS} characters.
 
-WRITING RULES
-{profile["rules"]}
+Do not cut the draft off mid-sentence.
+"""
 
-WRITING EXAMPLES
-{profile["examples"]}
+    retry_instruction = ""
+
+    if retry:
+        retry_instruction = """
+IMPORTANT RETRY:
+
+The previous generation appeared to end before the thought was complete.
+
+Write a completely finished draft this time.
+
+Make sure the final sentence is complete.
+Do not stop because of token limits.
+Do not leave a sentence, list or thought unfinished.
 """
 
     return f"""
-You are a crypto research and content intelligence assistant.
+You are an intelligent crypto research and content intelligence assistant.
 
-Your job is to turn researched information into useful,
-original crypto content.
+Your job is to understand the supplied research and identify the most
+interesting content opportunity.
 
 You are NOT a generic news summarizer.
 
-You must understand what is actually interesting about the
-research and decide how that specific information should be
-communicated.
-
-==================================================
-IMPORTANT: ADAPTIVE WRITING
-==================================================
-
-The author's writing profile describes tendencies, not a
-fixed template.
-
-DO NOT use the same structure for every draft.
-
-DO NOT force the author's usual hooks into every topic.
-
-DO NOT repeatedly use phrases such as:
-
-"Brutal truth:"
-"The actual strategy:"
-"In short:"
-"What this means:"
-"The takeaway:"
-"If you're building..."
-
-unless that phrasing is genuinely appropriate for THIS topic.
-
-The topic, evidence and idea should determine the structure.
-
-The author's writing profile should only influence how the
-idea is expressed.
-
-Different topics may naturally require completely different
-approaches.
-
-Possible approaches include:
-
-- analytical
-- contrarian
-- conversational
-- explanatory
-- narrative
-- personal-observation style
-- skeptical
-- provocative
-- humorous
-- punchy
-- educational
-- market thesis
-- opportunity discovery
-- warning
-- simple observation
-
-You may combine approaches.
-
-Choose the approach that feels most natural for the specific
-research.
-
-Do not announce which approach you selected.
-
-==================================================
-UNDERSTAND THE AUTHOR
-==================================================
-
-Study the supplied writing profile and examples.
-
-Learn the author's underlying communication tendencies:
-
-- tone
-- rhythm
-- sentence variation
-- paragraph spacing
-- vocabulary
-- confidence
-- use of numbers
-- use of questions
-- use of contrast
-- use of lists
-- use of slang
-- capitalization
-- punctuation
-- degree of technical language
-- use of personal perspective
-- skepticism
-- humor
-- conviction
-- ways of introducing ideas
-- ways of ending ideas
-
-These are tendencies, NOT rules.
-
-The author does not have one permanent writing format.
-
-Do not mechanically reproduce unusual grammar mistakes.
-
-Do not deliberately insert mistakes just to appear human.
-
-Do not copy sentences from the examples.
-
-Create original writing.
-
-==================================================
-RESEARCH TASK
-==================================================
-
-Find the strongest useful idea inside the supplied research.
+Think independently about what the research actually means.
 
 Look for:
 
@@ -252,146 +285,215 @@ Look for:
 - unusual developments
 - things worth testing
 - things worth investigating
-- opportunities creators may have missed
-- opportunities builders may have missed
+- things the creator could build
+- opportunities other creators may have missed
 - contradictions
-- important second-order effects
+- second-order effects
+- hidden opportunities
+- risks
+- implications for builders, traders or users
 
-Do not manufacture importance.
+WRITING STYLE INSTRUCTIONS
 
-If the development is ordinary, explain what is actually useful
-about it rather than pretending it is revolutionary.
+The writing profile is a GUIDE, not a template.
+
+Do NOT repeatedly reproduce the same hook.
+
+Do NOT repeatedly use the same paragraph structure.
+
+Do NOT force the same tone onto every topic.
+
+Do NOT copy phrases from the examples simply because they appear
+frequently.
+
+Instead, understand the underlying characteristics of the author's
+writing.
+
+The final draft should feel consistent with the author's natural
+writing while still being appropriate for the actual topic.
+
+The topic determines the shape of the writing.
+
+The writing profile influences HOW the idea is expressed.
+
+Different topics should produce genuinely different drafts.
+
+For example:
+
+- serious security research may be direct and analytical
+- a funny market observation may be casual
+- a major opportunity may be energetic
+- technical research may require explanation
+- a surprising discovery may use a strong hook
+- a personal-looking market observation may be reflective
+
+Do not mechanically imitate the examples.
+
+Never invent personal experiences.
+
+Never claim the creator personally tested something unless the research
+proves it.
 
 Never invent facts.
 
 Only make factual claims supported by the supplied research.
 
-Do not claim that the author personally experienced, tested,
-bought, used, or witnessed something unless the research or
-request explicitly proves it.
+If something is uncertain, clearly say so.
 
-==================================================
 WRITER PROFILE
-==================================================
 
-{profile_text}
+PATTERNS:
+{profile["patterns"]}
 
-==================================================
-RESEARCH QUERY
-==================================================
+RULES:
+{profile["rules"]}
 
+EXAMPLES:
+{profile["examples"]}
+
+RESEARCH QUERY:
 {research.get("query", "")}
 
-==================================================
-RESEARCH RESULTS
-==================================================
-
+RESEARCH RESULTS:
 {sources_text}
 
-==================================================
-OUTPUT
-==================================================
+OUTPUT FORMAT
 
-Return exactly these sections:
+Return ONLY these four sections:
 
 CATEGORY:
-<best category>
-
-WHAT HAPPENED:
-<clear factual explanation>
-
-WHY IT MATTERS:
-<why this development is genuinely interesting or useful>
+<short category>
 
 CONTENT ANGLE:
-<the strongest possible angle for the creator>
+<the strongest original angle for the creator>
 
 DRAFT:
-<original ready-to-post social-media draft>
+<ready-to-post social media draft>
 
 SOURCES:
-<source URLs>
+<source URLs, one per line>
 
-==================================================
-DRAFT RULES
-==================================================
+Do NOT include:
 
-The DRAFT must be:
+WHAT HAPPENED:
+WHY IT MATTERS:
+ANALYSIS:
+SUMMARY:
+NOTES:
 
-- between 0 and {MAX_DRAFT_CHARACTERS} characters
-- complete
-- original
-- natural
-- readable
-- supported by the research
-- appropriate for the specific topic
+or any other sections.
 
-There is NO minimum character requirement.
+Do NOT put source citations such as:
 
-A short idea should remain short.
+【1†https://example.com】
 
-A complex idea can use more space.
+inside the draft.
 
-Do not add filler simply to make the draft longer.
+Do not use markdown citation syntax.
 
-Do not cut the draft in the middle of a sentence.
+The SOURCES section must contain plain URLs only.
 
-Do not end on an incomplete thought.
+Do not begin every post with the same type of hook.
 
-Do not use a generic introduction.
-
-Avoid automatically beginning with:
+Avoid generic openings such as:
 
 "Here's an interesting..."
 "According to..."
 "Breaking..."
 "Today I discovered..."
 
-unless there is a genuinely compelling reason to do so.
+Use the strongest opening for the specific subject.
 
-Use line breaks when they improve rhythm.
+{draft_requirement}
 
-Do not force emojis.
-
-Do not force all-caps.
-
-Do not force slang.
-
-Do not force questions.
-
-Do not force lists.
-
-Use those devices only when they naturally fit the idea.
-
-==================================================
-FINAL QUALITY CHECK
-==================================================
-
-Before returning the answer, silently check:
-
-1. Is every factual claim supported by the research?
-2. Is the draft original?
-3. Does the structure fit THIS topic?
-4. Does it avoid blindly copying the author's examples?
-5. Does it sound natural?
-6. Is it complete?
-7. Is it 0–{MAX_DRAFT_CHARACTERS} characters?
-8. Is there unnecessary filler?
-9. Is the ending complete?
-10. Would this actually be usable as a social-media post?
-
-If the draft exceeds {MAX_DRAFT_CHARACTERS}, rewrite it shorter.
-
-NEVER simply truncate the draft.
+{retry_instruction}
 
 REQUEST TYPE:
 {request_type}
 """
 
 
-# ---------------------------------------------------------
-# GENERATION
-# ---------------------------------------------------------
+def call_writer(
+    research,
+    request_type="feed",
+    retry=False,
+):
+    prompt = build_prompt(
+        research,
+        request_type=request_type,
+        retry=retry,
+    )
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.75,
+        max_tokens=1400,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a precise crypto research and "
+                    "content intelligence assistant. "
+                    "Follow the requested output structure exactly "
+                    "and always finish your draft."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+    )
+
+    return response.choices[0].message.content.strip()
+
+
+def format_output(
+    model_text,
+    research,
+):
+    parsed = parse_output(model_text)
+
+    category = parsed["category"]
+    content_angle = parsed["content_angle"]
+    draft = parsed["draft"]
+
+    if not category:
+        category = "Crypto intelligence"
+
+    if not content_angle:
+        content_angle = "Explore the strongest opportunity revealed by the research."
+
+    if not draft:
+        raise RuntimeError(
+            "Groq did not return a usable DRAFT section."
+        )
+
+    sources = []
+
+    for result in research.get("results", []):
+        url = result.get("url", "").strip()
+
+        if url and url not in sources:
+            sources.append(url)
+
+    output = (
+        f"CATEGORY:\n"
+        f"{category}\n\n"
+        f"CONTENT ANGLE:\n"
+        f"{content_angle}\n\n"
+        f"DRAFT:\n"
+        f"{draft}"
+    )
+
+    if sources:
+        output += "\n\nSOURCES:\n"
+
+        for url in sources:
+            output += f"{url}\n"
+
+    return output.strip(), draft
+
 
 def generate_intelligence(
     research,
@@ -402,232 +504,53 @@ def generate_intelligence(
             "GROQ_API_KEY is missing."
         )
 
-    prompt = build_prompt(
+    # First generation.
+    model_text = call_writer(
         research,
         request_type=request_type,
+        retry=False,
     )
 
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        temperature=0.75,
-        max_tokens=900,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a precise crypto research "
-                    "and content intelligence assistant. "
-                    "Follow the requested output structure. "
-                    "Return complete writing."
-                ),
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
+    output, draft = format_output(
+        model_text,
+        research,
     )
 
-    text = (
-        response
-        .choices[0]
-        .message
-        .content
-        .strip()
-    )
-
-    if not text:
-        raise RuntimeError(
-            "Groq returned an empty response."
-        )
-
-    if len(text) < 100:
-        raise RuntimeError(
-            "Groq returned an unexpectedly short response."
-        )
-
-    # -----------------------------------------------------
-    # Extract the draft so we can verify its length.
-    # -----------------------------------------------------
-
-    draft = extract_section(
-        text,
-        "DRAFT:",
-        "SOURCES:",
-    )
-
-    if draft:
-        draft_length = len(
-            draft.strip()
-        )
-
-        logger.info(
-            "Generated draft length: %d characters",
-            draft_length,
-        )
-
-        if draft_length > MAX_DRAFT_CHARACTERS:
-            logger.warning(
-                "Generated draft exceeds %d characters.",
-                MAX_DRAFT_CHARACTERS,
-            )
-
-            text = regenerate_shorter(
-                research,
-                request_type,
-                text,
-            )
-
-    # -----------------------------------------------------
-    # Append source URLs once.
-    # -----------------------------------------------------
-
-    sources = []
-
-    for result in research.get(
-        "results",
-        [],
-    ):
-        url = result.get(
-            "url",
-            "",
-        ).strip()
-
-        if url and url not in sources:
-            sources.append(url)
-
-    if sources and "\nSOURCES\n" not in text:
-        text += "\n\nSOURCES\n"
-
-        for index, url in enumerate(
-            sources,
-            start=1,
-        ):
-            text += f"{index}. {url}\n"
-
-    return text
-
-
-# ---------------------------------------------------------
-# SECTION EXTRACTION
-# ---------------------------------------------------------
-
-def extract_section(
-    text,
-    start_marker,
-    end_marker=None,
-):
-    start_index = text.find(
-        start_marker
-    )
-
-    if start_index == -1:
-        return ""
-
-    start_index += len(
-        start_marker
-    )
-
-    if end_marker:
-        end_index = text.find(
-            end_marker,
-            start_index,
-        )
-
-        if end_index == -1:
-            section = text[start_index:]
-        else:
-            section = text[
-                start_index:end_index
-            ]
-    else:
-        section = text[start_index:]
-
-    return section.strip()
-
-
-# ---------------------------------------------------------
-# REGENERATE OVER-LENGTH DRAFT
-# ---------------------------------------------------------
-
-def regenerate_shorter(
-    research,
-    request_type,
-    previous_response,
-):
-    draft = extract_section(
-        previous_response,
-        "DRAFT:",
-        "SOURCES:",
-    )
-
-    if not draft:
-        return previous_response
-
-    prompt = f"""
-Rewrite the following social-media draft.
-
-Keep the core idea and factual claims.
-
-Make it shorter and complete.
-
-Maximum length: {MAX_DRAFT_CHARACTERS} characters.
-
-There is no minimum length.
-
-Do not simply cut the text at the character limit.
-
-Rewrite it naturally so the final thought is complete.
-
-Do not add explanations.
-
-Return ONLY the rewritten draft.
-
-DRAFT:
-
-{draft}
-"""
-
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        temperature=0.65,
-        max_tokens=700,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Rewrite social-media drafts naturally "
-                    "while preserving factual accuracy."
-                ),
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-    )
-
-    shorter = (
-        response
-        .choices[0]
-        .message
-        .content
-        .strip()
-    )
-
-    if not shorter:
-        return previous_response
-
-    if len(shorter) > MAX_DRAFT_CHARACTERS:
+    # Retry only when the draft appears unfinished.
+    if draft_looks_cut_off(draft):
         logger.warning(
-            "Second-pass draft still exceeds character limit: %d",
-            len(shorter),
+            "Writer draft appears incomplete. Retrying once."
         )
 
-        return previous_response
+        model_text = call_writer(
+            research,
+            request_type=request_type,
+            retry=True,
+        )
 
-    return previous_response.replace(
-        draft,
-        shorter,
-        1,
-    )
+        output, draft = format_output(
+            model_text,
+            research,
+        )
+
+        if draft_looks_cut_off(draft):
+            logger.warning(
+                "Writer draft still appears incomplete after retry."
+            )
+
+    # Enforce the existing feed/research minimum.
+    if request_type != "create":
+        if len(draft) < MIN_DRAFT_CHARACTERS:
+            logger.warning(
+                "Draft is below configured minimum: %d characters.",
+                len(draft),
+            )
+
+    # Never allow an oversized draft to pass through.
+    if len(draft) > MAX_DRAFT_CHARACTERS:
+        logger.warning(
+            "Draft exceeds maximum length (%d).",
+            MAX_DRAFT_CHARACTERS,
+        )
+
+    return output
