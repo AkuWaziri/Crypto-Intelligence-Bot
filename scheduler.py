@@ -140,7 +140,7 @@ def choose_research_topics():
     if not niches:
         return []
 
-    count = min(4, len(niches))
+    count = 1
 
     now = datetime.utcnow()
 
