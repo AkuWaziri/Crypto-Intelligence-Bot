@@ -42,6 +42,7 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
+/create &lt;request&gt; — research and create content
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
@@ -53,9 +54,13 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 
 /research suspicious smart contracts
 
-/research wallets moving BTC
+/create explain AI agents
 
-/research new crypto opportunities
+/create break down Binance Agent OS
+
+/create give me a contrarian crypto idea
+
+/create make a guide to using Base
 """
 
 
@@ -219,6 +224,75 @@ async def research_command(
             )
 
 
+async def create_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    if not update.message:
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Usage:\n"
+            "/create <what you want to create>\n\n"
+            "Examples:\n"
+            "/create explain AI agents\n"
+            "/create break down Binance Agent OS\n"
+            "/create make a guide to using Base\n"
+            "/create find an interesting AI agent topic\n"
+            "/create give me a contrarian crypto idea"
+        )
+        return
+
+    request = " ".join(
+        context.args
+    ).strip()
+
+    status = await update.message.reply_text(
+        "✍️ Researching and creating your content..."
+    )
+
+    try:
+        research = await asyncio.to_thread(
+            search_web,
+            request,
+        )
+
+        if not research.get("results"):
+            await status.edit_text(
+                "❌ I couldn't find enough useful "
+                "information to create a strong post."
+            )
+            return
+
+        intelligence = await asyncio.to_thread(
+            generate_intelligence,
+            research,
+            "create",
+        )
+
+        await status.delete()
+
+        await send_message(
+            update,
+            intelligence,
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Create failed."
+        )
+
+        try:
+            await status.edit_text(
+                f"❌ Create failed.\n\n{exc}"
+            )
+        except Exception:
+            await update.message.reply_text(
+                f"❌ Create failed.\n\n{exc}"
+            )
+
+
 async def feed_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -306,6 +380,13 @@ def setup_handlers():
         CommandHandler(
             "research",
             research_command,
+        )
+    )
+
+    telegram_app.add_handler(
+        CommandHandler(
+            "create",
+            create_command,
         )
     )
 
