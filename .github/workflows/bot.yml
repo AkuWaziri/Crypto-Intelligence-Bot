@@ -30,4 +30,6 @@ jobs:
           GROQ_MODEL: ${{ vars.GROQ_MODEL }}
           RESEARCH_INTERVAL_MINUTES: "30"
           MAX_RESEARCH_RESULTS: "3"
-        run: python github_feed.py
+        run: |
+          echo "GROQ_MODEL configured: ${GROQ_MODEL:+YES}"
+          python github_feed.py
