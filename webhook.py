@@ -13,7 +13,7 @@ from telegram.ext import (
 from config import TELEGRAM_BOT_TOKEN
 from niches import get_niches, add_niche
 from research import search_web
-from writer import generate_intelligence
+from writer import generate_intelligence, generate_content
 
 
 logging.basicConfig(
@@ -34,7 +34,7 @@ telegram_app = (
 HELP_TEXT = """
 🧠 <b>Crypto Intelligence Bot</b>
 
-Research crypto/Web3 and turn useful discoveries into content intelligence.
+Research crypto/Web3 and turn useful discoveries into content.
 
 <b>Commands</b>
 
@@ -42,11 +42,11 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
-/create &lt;request&gt; — research and create content
+/create &lt;request&gt; — create ready-to-post content
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
-<b>Examples</b>
+<b>Research examples</b>
 
 /research AI agents
 
@@ -54,13 +54,21 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 
 /research suspicious smart contracts
 
-/create explain AI agents
+<b>Create examples</b>
+
+/create Crypto GM post
+
+/create write a GM post for today
+
+/create explain ERC-8196 simply
 
 /create break down Binance Agent OS
 
 /create give me a contrarian crypto idea
 
 /create make a guide to using Base
+
+/create write a funny crypto post about the bear market
 """
 
 
@@ -225,73 +233,78 @@ async def research_command(
 
 
 async def create_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+update: Update,
+context: ContextTypes.DEFAULT_TYPE,
 ):
-    if not update.message:
-        return
+if not update.message:
+return
 
-    if not context.args:
-        await update.message.reply_text(
-            "Usage:\n"
-            "/create <what you want to create>\n\n"
-            "Examples:\n"
-            "/create explain AI agents\n"
-            "/create break down Binance Agent OS\n"
-            "/create make a guide to using Base\n"
-            "/create find an interesting AI agent topic\n"
-            "/create give me a contrarian crypto idea"
+```
+if not context.args:
+    await update.message.reply_text(
+        "Usage:\n"
+        "/create <what you want to create>\n\n"
+        "Examples:\n"
+        "/create Crypto GM post\n"
+        "/create write a post about AI agents\n"
+        "/create give me a contrarian crypto take\n"
+        "/create explain why stablecoins matter\n"
+        "/create make a funny crypto post"
+    )
+    return
+
+request = " ".join(
+    context.args
+).strip()
+
+status = await update.message.reply_text(
+    "✍️ Researching context and creating your content..."
+)
+
+try:
+    research = await asyncio.to_thread(
+        search_web,
+        request,
+    )
+
+    if not research:
+        research = {
+            "query": request,
+            "results": [],
+        }
+
+    content = await asyncio.to_thread(
+        generate_content,
+        request,
+        research,
+    )
+
+    if not content:
+        raise RuntimeError(
+            "No content was generated."
         )
-        return
 
-    request = " ".join(
-        context.args
-    ).strip()
+    await status.delete()
 
-    status = await update.message.reply_text(
-        "✍️ Researching and creating your content..."
+    await send_message(
+        update,
+        content,
+    )
+
+except Exception as exc:
+    logger.exception(
+        "Create failed."
     )
 
     try:
-        research = await asyncio.to_thread(
-            search_web,
-            request,
+        await status.edit_text(
+            f"❌ Create failed.\n\n{exc}"
         )
-
-        if not research.get("results"):
-            await status.edit_text(
-                "❌ I couldn't find enough useful "
-                "information to create a strong post."
-            )
-            return
-
-        intelligence = await asyncio.to_thread(
-            generate_intelligence,
-            research,
-            "create",
+    except Exception:
+        await update.message.reply_text(
+            f"❌ Create failed.\n\n{exc}"
         )
-
-        await status.delete()
-
-        await send_message(
-            update,
-            intelligence,
-        )
-
-    except Exception as exc:
-        logger.exception(
-            "Create failed."
-        )
-
-        try:
-            await status.edit_text(
-                f"❌ Create failed.\n\n{exc}"
-            )
-        except Exception:
-            await update.message.reply_text(
-                f"❌ Create failed.\n\n{exc}"
-            )
-
+```
 
 async def feed_command(
     update: Update,
