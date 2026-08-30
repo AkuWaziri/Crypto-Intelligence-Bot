@@ -204,18 +204,18 @@ async def research_command(
             )
             return
 
-        intelligence = await asyncio.to_thread(
-            generate_intelligence,
-            research,
-            "manual research",
-        )
+        content = await asyncio.to_thread(
+    generate_content,
+    request,
+    research,
+)
 
-        await status.delete()
+await status.delete()
 
-        await send_message(
-            update,
-            intelligence,
-        )
+await send_message(
+    update,
+    content,
+)
 
     except Exception as exc:
         logger.exception(
