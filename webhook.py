@@ -2,7 +2,10 @@ import asyncio
 import logging
 import os
 
+import uvicorn
+from asgiref.wsgi import WsgiToAsgi
 from flask import Flask, request, jsonify
+
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -27,6 +30,7 @@ app = Flask(__name__)
 telegram_app = (
     Application.builder()
     .token(TELEGRAM_BOT_TOKEN)
+    .updater(None)
     .build()
 )
 
@@ -249,7 +253,7 @@ async def create_command(
         )
         return
 
-    request = " ".join(
+    request_text = " ".join(
         context.args
     ).strip()
 
@@ -260,21 +264,18 @@ async def create_command(
     try:
         research = await asyncio.to_thread(
             search_web,
-            request,
+            request_text,
         )
 
-        # Research is optional for /create.
-        # Some creative requests such as GM posts
-        # do not need external research.
         if not research:
             research = {
-                "query": request,
+                "query": request_text,
                 "results": [],
             }
 
         content = await asyncio.to_thread(
             generate_content,
-            request,
+            request_text,
             research,
         )
 
@@ -312,7 +313,7 @@ async def feed_command(
     if not update.message:
         return
 
-    await update.message.reply_text(
+    status = await update.message.reply_text(
         "🧠 Running a fresh intelligence feed..."
     )
 
@@ -320,6 +321,8 @@ async def feed_command(
         from scheduler import generate_feed
 
         reports = await generate_feed()
+
+        await status.delete()
 
         if not reports:
             await update.message.reply_text(
@@ -339,9 +342,14 @@ async def feed_command(
             "Manual feed failed."
         )
 
-        await update.message.reply_text(
-            f"❌ Feed failed.\n\n{exc}"
-        )
+        try:
+            await status.edit_text(
+                f"❌ Feed failed.\n\n{exc}"
+            )
+        except Exception:
+            await update.message.reply_text(
+                f"❌ Feed failed.\n\n{exc}"
+            )
 
 
 async def send_message(
@@ -431,7 +439,7 @@ def health():
 
 
 @app.post("/telegram")
-async def telegram_webhook():
+def telegram_webhook():
     data = request.get_json(
         force=True,
         silent=True,
@@ -442,50 +450,89 @@ async def telegram_webhook():
             {"status": "ignored"}
         )
 
-    update = Update.de_json(
-        data,
-        telegram_app.bot,
-    )
+    try:
+        update = Update.de_json(
+            data,
+            telegram_app.bot,
+        )
 
-    await telegram_app.process_update(
-        update
-    )
+        telegram_app.update_queue.put_nowait(
+            update
+        )
 
-    return jsonify(
-        {"status": "ok"}
-    )
+        return jsonify(
+            {"status": "ok"}
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to queue Telegram update."
+        )
+
+        return jsonify(
+            {
+                "status": "error",
+                "error": str(exc),
+            }
+        ), 500
 
 
 async def startup():
     await telegram_app.initialize()
 
+    await telegram_app.start()
+
     render_url = os.environ.get(
         "RENDER_EXTERNAL_URL"
     )
 
-    if render_url:
-        webhook_url = (
-            f"{render_url.rstrip('/')}"
-            "/telegram"
+    if not render_url:
+        raise RuntimeError(
+            "RENDER_EXTERNAL_URL is not set."
         )
 
-        await telegram_app.bot.set_webhook(
-            url=webhook_url
+    webhook_url = (
+        f"{render_url.rstrip('/')}"
+        "/telegram"
+    )
+
+    await telegram_app.bot.set_webhook(
+        url=webhook_url,
+        allowed_updates=Update.ALL_TYPES,
+    )
+
+    logger.info(
+        "Telegram webhook registered: %s",
+        webhook_url,
+    )
+
+
+async def shutdown():
+    try:
+        await telegram_app.bot.delete_webhook()
+    except Exception:
+        logger.exception(
+            "Failed to delete Telegram webhook."
         )
 
-        logger.info(
-            "Telegram webhook registered: %s",
-            webhook_url,
+    try:
+        await telegram_app.stop()
+    except Exception:
+        logger.exception(
+            "Failed to stop Telegram application."
         )
 
-    else:
-        logger.warning(
-            "RENDER_EXTERNAL_URL is not set. "
-            "Telegram webhook was not automatically registered."
+    try:
+        await telegram_app.shutdown()
+    except Exception:
+        logger.exception(
+            "Failed to shutdown Telegram application."
         )
 
 
-if __name__ == "__main__":
+async def main():
+    await startup()
+
     port = int(
         os.environ.get(
             "PORT",
@@ -493,11 +540,25 @@ if __name__ == "__main__":
         )
     )
 
-    asyncio.run(
-        startup()
-    )
+    asgi_app = WsgiToAsgi(app)
 
-    app.run(
+    config = uvicorn.Config(
+        asgi_app,
         host="0.0.0.0",
         port=port,
+        log_level="info",
     )
+
+    server = uvicorn.Server(
+        config
+    )
+
+    try:
+        await server.serve()
+
+    finally:
+        await shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
