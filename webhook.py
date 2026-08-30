@@ -34,7 +34,7 @@ telegram_app = (
 HELP_TEXT = """
 🧠 <b>Crypto Intelligence Bot</b>
 
-Research crypto/Web3 and turn useful discoveries into content.
+Research crypto/Web3 and turn useful discoveries into content intelligence.
 
 <b>Commands</b>
 
@@ -42,11 +42,11 @@ Research crypto/Web3 and turn useful discoveries into content.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
-/create &lt;request&gt; — create ready-to-post content
+/create &lt;request&gt; — research and create content
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
-<b>Research examples</b>
+<b>Examples</b>
 
 /research AI agents
 
@@ -54,21 +54,17 @@ Research crypto/Web3 and turn useful discoveries into content.
 
 /research suspicious smart contracts
 
-<b>Create examples</b>
-
 /create Crypto GM post
 
 /create write a GM post for today
 
-/create explain ERC-8196 simply
+/create explain AI agents simply
 
 /create break down Binance Agent OS
 
 /create give me a contrarian crypto idea
 
 /create make a guide to using Base
-
-/create write a funny crypto post about the bear market
 """
 
 
@@ -204,18 +200,18 @@ async def research_command(
             )
             return
 
-        content = await asyncio.to_thread(
-    generate_content,
-    request,
-    research,
-)
+        intelligence = await asyncio.to_thread(
+            generate_intelligence,
+            research,
+            "manual research",
+        )
 
-await status.delete()
+        await status.delete()
 
-await send_message(
-    update,
-    content,
-)
+        await send_message(
+            update,
+            intelligence,
+        )
 
     except Exception as exc:
         logger.exception(
@@ -233,78 +229,81 @@ await send_message(
 
 
 async def create_command(
-update: Update,
-context: ContextTypes.DEFAULT_TYPE,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
 ):
-if not update.message:
-return
+    if not update.message:
+        return
 
-```
-if not context.args:
-    await update.message.reply_text(
-        "Usage:\n"
-        "/create <what you want to create>\n\n"
-        "Examples:\n"
-        "/create Crypto GM post\n"
-        "/create write a post about AI agents\n"
-        "/create give me a contrarian crypto take\n"
-        "/create explain why stablecoins matter\n"
-        "/create make a funny crypto post"
-    )
-    return
-
-request = " ".join(
-    context.args
-).strip()
-
-status = await update.message.reply_text(
-    "✍️ Researching context and creating your content..."
-)
-
-try:
-    research = await asyncio.to_thread(
-        search_web,
-        request,
-    )
-
-    if not research:
-        research = {
-            "query": request,
-            "results": [],
-        }
-
-    content = await asyncio.to_thread(
-        generate_content,
-        request,
-        research,
-    )
-
-    if not content:
-        raise RuntimeError(
-            "No content was generated."
+    if not context.args:
+        await update.message.reply_text(
+            "Usage:\n"
+            "/create <what you want to create>\n\n"
+            "Examples:\n"
+            "/create Crypto GM post\n"
+            "/create write a GM post for today\n"
+            "/create explain AI agents simply\n"
+            "/create break down Binance Agent OS\n"
+            "/create give me a contrarian crypto idea\n"
+            "/create make a guide to using Base"
         )
+        return
 
-    await status.delete()
+    request = " ".join(
+        context.args
+    ).strip()
 
-    await send_message(
-        update,
-        content,
-    )
-
-except Exception as exc:
-    logger.exception(
-        "Create failed."
+    status = await update.message.reply_text(
+        "✍️ Researching and creating your content..."
     )
 
     try:
-        await status.edit_text(
-            f"❌ Create failed.\n\n{exc}"
+        research = await asyncio.to_thread(
+            search_web,
+            request,
         )
-    except Exception:
-        await update.message.reply_text(
-            f"❌ Create failed.\n\n{exc}"
+
+        # Research is optional for /create.
+        # Some creative requests such as GM posts
+        # do not need external research.
+        if not research:
+            research = {
+                "query": request,
+                "results": [],
+            }
+
+        content = await asyncio.to_thread(
+            generate_content,
+            request,
+            research,
         )
-```
+
+        if not content:
+            raise RuntimeError(
+                "No content was generated."
+            )
+
+        await status.delete()
+
+        await send_message(
+            update,
+            content,
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Create failed."
+        )
+
+        try:
+            await status.edit_text(
+                f"❌ Create failed.\n\n{exc}"
+            )
+        except Exception:
+            await update.message.reply_text(
+                f"❌ Create failed.\n\n{exc}"
+            )
+
 
 async def feed_command(
     update: Update,
