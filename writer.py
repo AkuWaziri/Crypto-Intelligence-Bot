@@ -5,254 +5,249 @@ import logging
 from groq import Groq
 
 from config import (
-GROQ_API_KEY,
-GROQ_MODEL,
-WRITER_PROFILE_DIR,
-MIN_DRAFT_CHARACTERS,
-MAX_DRAFT_CHARACTERS,
-MAX_FEED_DRAFT_CHARACTERS,
+    GROQ_API_KEY,
+    GROQ_MODEL,
+    WRITER_PROFILE_DIR,
+    MIN_DRAFT_CHARACTERS,
+    MAX_DRAFT_CHARACTERS,
+    MAX_FEED_DRAFT_CHARACTERS,
 )
 
-logger = logging.getLogger(**name**)
+logger = logging.getLogger(__name__)
 
 client = Groq(api_key=GROQ_API_KEY)
 
+
 def read_profile_file(filename: str) -> str:
-path = os.path.join(
-WRITER_PROFILE_DIR,
-filename,
-)
-
-```
-if not os.path.exists(path):
-    return ""
-
-try:
-    with open(
-        path,
-        "r",
-        encoding="utf-8",
-    ) as file:
-        return file.read()
-except Exception:
-    logger.exception(
-        "Could not read writer profile file: %s",
+    path = os.path.join(
+        WRITER_PROFILE_DIR,
         filename,
     )
-    return ""
-```
+
+    if not os.path.exists(path):
+        return ""
+
+    try:
+        with open(
+            path,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            return file.read()
+    except Exception:
+        logger.exception(
+            "Could not read writer profile file: %s",
+            filename,
+        )
+        return ""
+
 
 def load_writer_profile():
-return {
-"examples": read_profile_file("examples.txt"),
-"patterns": read_profile_file("patterns.txt"),
-"rules": read_profile_file("rules.txt"),
-}
+    return {
+        "examples": read_profile_file("examples.txt"),
+        "patterns": read_profile_file("patterns.txt"),
+        "rules": read_profile_file("rules.txt"),
+    }
+
 
 def clean_model_text(text: str) -> str:
-if not text:
-return ""
+    if not text:
+        return ""
 
-````
-text = re.sub(
-    r"```(?:text|markdown|json)?",
-    "",
-    text,
-    flags=re.IGNORECASE,
-)
-
-text = text.replace("```", "")
-
-text = re.sub(
-    r"Ã£â‚¬\d+(?:Ã¢â‚¬[^Ã£â‚¬â€˜]*)?Ã£â‚¬â€˜",
-    "",
-    text,
-)
-
-text = re.sub(
-    r"\[([^\]]+)\]\([^)]+\)",
-    r"\1",
-    text,
-)
-
-return text.strip()
-````
-
-def extract_section(
-text: str,
-section_name: str,
-next_sections,
-):
-next_pattern = "|".join(
-re.escape(item)
-for item in next_sections
-)
-
-```
-pattern = (
-    rf"{re.escape(section_name)}\s*:\s*"
-    rf"(.*?)(?=\n\s*(?:{next_pattern})\s*:|\Z)"
-)
-
-match = re.search(
-    pattern,
-    text,
-    flags=re.IGNORECASE | re.DOTALL,
-)
-
-if not match:
-    return ""
-
-return match.group(1).strip()
-```
-
-def parse_output(text: str):
-text = clean_model_text(text)
-
-```
-category = extract_section(
-    text,
-    "CATEGORY",
-    [
-        "CONTENT ANGLE",
-        "DRAFT",
-        "SOURCES",
-    ],
-)
-
-content_angle = extract_section(
-    text,
-    "CONTENT ANGLE",
-    [
-        "DRAFT",
-        "SOURCES",
-    ],
-)
-
-draft = extract_section(
-    text,
-    "DRAFT",
-    [
-        "SOURCES",
-    ],
-)
-
-return {
-    "category": category,
-    "content_angle": content_angle,
-    "draft": draft,
-}
-```
-
-def draft_looks_cut_off(draft: str) -> bool:
-if not draft:
-return True
-
-```
-stripped = draft.strip()
-
-if len(stripped) < 20:
-    return True
-
-lower = stripped.lower()
-
-unfinished_endings = (
-    " and",
-    " or",
-    " but",
-    " because",
-    " that",
-    " which",
-    " with",
-    " for",
-    " to",
-    " of",
-    " in",
-    " on",
-    " at",
-    " into",
-    " from",
-    " as",
-    " than",
-    " is",
-    " are",
-    " was",
-    " were",
-    " the",
-    " a",
-    " an",
-    ",",
-    ":",
-    "-",
-    "â€“",
-    "â€”",
-    "(",
-    "[",
-    "...",
-)
-
-if lower.endswith(unfinished_endings):
-    return True
-
-if stripped.count("(") > stripped.count(")"):
-    return True
-
-if stripped.count("[") > stripped.count("]"):
-    return True
-
-return False
-```
-
-def build_research_text(research):
-sources = []
-
-```
-for index, result in enumerate(
-    research.get("results", []),
-    start=1,
-):
-    title = result.get("title", "").strip()
-    content = result.get("content", "").strip()
-    url = result.get("url", "").strip()
-
-    compact_content = content[:1000]
-
-    sources.append(
-        f"SOURCE {index}\n"
-        f"TITLE: {title}\n"
-        f"CONTENT: {compact_content}\n"
-        f"URL: {url}"
+    text = re.sub(
+        r"```(?:text|markdown|json)?",
+        "",
+        text,
+        flags=re.IGNORECASE,
     )
 
-return "\n\n".join(sources)
-```
+    text = text.replace("```", "")
+
+    # Remove malformed citation artifacts.
+    text = re.sub(
+        r"ã€\d+(?:â€[^ã€‘]*)?ã€‘",
+        "",
+        text,
+    )
+
+    # Remove markdown hyperlinks while preserving visible text.
+    text = re.sub(
+        r"\[([^\]]+)\]\([^)]+\)",
+        r"\1",
+        text,
+    )
+
+    return text.strip()
+
+
+def extract_section(
+    text: str,
+    section_name: str,
+    next_sections,
+):
+    next_pattern = "|".join(
+        re.escape(item)
+        for item in next_sections
+    )
+
+    pattern = (
+        rf"{re.escape(section_name)}\s*:\s*"
+        rf"(.*?)(?=\n\s*(?:{next_pattern})\s*:|\Z)"
+    )
+
+    match = re.search(
+        pattern,
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    if not match:
+        return ""
+
+    return match.group(1).strip()
+
+
+def parse_output(text: str):
+    text = clean_model_text(text)
+
+    category = extract_section(
+        text,
+        "CATEGORY",
+        [
+            "CONTENT ANGLE",
+            "DRAFT",
+            "SOURCES",
+        ],
+    )
+
+    content_angle = extract_section(
+        text,
+        "CONTENT ANGLE",
+        [
+            "DRAFT",
+            "SOURCES",
+        ],
+    )
+
+    draft = extract_section(
+        text,
+        "DRAFT",
+        [
+            "SOURCES",
+        ],
+    )
+
+    return {
+        "category": category,
+        "content_angle": content_angle,
+        "draft": draft,
+    }
+
+
+def draft_looks_cut_off(draft: str) -> bool:
+    if not draft:
+        return True
+
+    stripped = draft.strip()
+
+    if len(stripped) < 20:
+        return True
+
+    lower = stripped.lower()
+
+    unfinished_endings = (
+        " and",
+        " or",
+        " but",
+        " because",
+        " that",
+        " which",
+        " with",
+        " for",
+        " to",
+        " of",
+        " in",
+        " on",
+        " at",
+        " into",
+        " from",
+        " as",
+        " than",
+        " is",
+        " are",
+        " was",
+        " were",
+        " the",
+        " a",
+        " an",
+        ",",
+        ":",
+        "-",
+        "–",
+        "—",
+        "(",
+        "[",
+        "...",
+    )
+
+    if lower.endswith(unfinished_endings):
+        return True
+
+    if stripped.count("(") > stripped.count(")"):
+        return True
+
+    if stripped.count("[") > stripped.count("]"):
+        return True
+
+    return False
+
+
+def build_research_text(research):
+    sources = []
+
+    for index, result in enumerate(
+        research.get("results", []),
+        start=1,
+    ):
+        title = result.get("title", "").strip()
+        content = result.get("content", "").strip()
+        url = result.get("url", "").strip()
+
+        # Keep the prompt compact to reduce token consumption.
+        compact_content = content[:1000]
+
+        sources.append(
+            f"SOURCE {index}\n"
+            f"TITLE: {title}\n"
+            f"CONTENT: {compact_content}\n"
+            f"URL: {url}"
+        )
+
+    return "\n\n".join(sources)
+
 
 def get_draft_max(request_type):
-if request_type == "feed":
-return MAX_FEED_DRAFT_CHARACTERS
+    if request_type == "feed":
+        return MAX_FEED_DRAFT_CHARACTERS
 
-```
-return MAX_DRAFT_CHARACTERS
-```
+    return MAX_DRAFT_CHARACTERS
+
 
 def build_prompt(
-research,
-request_type="feed",
-retry=False,
+    research,
+    request_type="feed",
+    retry=False,
 ):
-profile = load_writer_profile()
+    profile = load_writer_profile()
 
-```
-sources_text = build_research_text(research)
+    sources_text = build_research_text(research)
 
-draft_max = get_draft_max(request_type)
+    draft_max = get_draft_max(request_type)
 
-retry_instruction = ""
+    retry_instruction = ""
 
-if retry:
-    retry_instruction = f"""
-```
-
+    if retry:
+        retry_instruction = f"""
 RETRY INSTRUCTION
 
 The previous DRAFT failed validation.
@@ -271,10 +266,7 @@ unfinished thought, unfinished list, or "...".
 Do not explain the retry.
 """
 
-```
-return f"""
-```
-
+    return f"""
 You are a senior crypto research editor and content strategist.
 
 Your job is to transform current research into useful,
@@ -285,22 +277,22 @@ REQUEST TYPE:
 
 You have TWO responsibilities.
 
-RESPONSIBILITY 1 â€” EDITORIAL INTELLIGENCE
+RESPONSIBILITY 1 — EDITORIAL INTELLIGENCE
 
 Understand what the research actually establishes.
 
 Determine:
 
-* what is confirmed
-* what is uncertain
-* what is genuinely important
-* what is surprising
-* what is changing
-* what people may be overlooking
-* what second-order implications could matter
-* whether there is a meaningful opportunity
-* whether there is a meaningful risk
-* whether the story is bullish, bearish, neutral, skeptical,
+- what is confirmed
+- what is uncertain
+- what is genuinely important
+- what is surprising
+- what is changing
+- what people may be overlooking
+- what second-order implications could matter
+- whether there is a meaningful opportunity
+- whether there is a meaningful risk
+- whether the story is bullish, bearish, neutral, skeptical,
   funny, controversial, educational, practical or simply interesting
 
 Do NOT force every story into a bullish opportunity.
@@ -324,7 +316,7 @@ Never turn a possibility into a fact.
 
 Never invent information.
 
-RESPONSIBILITY 2 â€” CREATOR CONTENT STRATEGY
+RESPONSIBILITY 2 — CREATOR CONTENT STRATEGY
 
 Determine the SINGLE strongest content angle a crypto creator
 could use.
@@ -333,32 +325,32 @@ CONTENT ANGLE is NOT a summary of the research.
 
 It is a professional recommendation telling the creator:
 
-* what to write
-* what perspective to take
-* what part of the story deserves attention
-* what evidence or examples to emphasize
-* what the reader should understand
-* what direction the creator can take if expanding the post
+- what to write
+- what perspective to take
+- what part of the story deserves attention
+- what evidence or examples to emphasize
+- what the reader should understand
+- what direction the creator can take if expanding the post
 
 The CONTENT ANGLE should be useful even if the creator later
 rewrites or expands the DRAFT using another writing tool.
 
 A strong content angle can be:
 
-* contrarian observation
-* overlooked implication
-* practical explainer
-* comparison
-* warning
-* market thesis
-* builder opportunity
-* user-focused observation
-* case study
-* actionable post
-* skeptical take
-* trend analysis
-* surprising fact
-* debate/question
+- contrarian observation
+- overlooked implication
+- practical explainer
+- comparison
+- warning
+- market thesis
+- builder opportunity
+- user-focused observation
+- case study
+- actionable post
+- skeptical take
+- trend analysis
+- surprising fact
+- debate/question
 
 Do NOT automatically recommend:
 
@@ -476,13 +468,13 @@ is approaching.
 
 NEVER end the DRAFT with:
 
-* an unfinished sentence
-* an unfinished list
-* an unfinished argument
-* "..."
-* a dangling conjunction such as "and", "but", "because",
+- an unfinished sentence
+- an unfinished list
+- an unfinished argument
+- "..."
+- a dangling conjunction such as "and", "but", "because",
   "while", "which", "that", "with", or "so"
-* a colon introducing information that never follows
+- a colon introducing information that never follows
 
 If the idea is too large for the character limit, COMPRESS IT.
 
@@ -521,13 +513,13 @@ Do NOT sacrifice completion to include another fact.
 
 Before returning the answer, silently check:
 
-* Is the final sentence complete?
-* Is the thought complete?
-* Does the ending read naturally?
-* Is there any unfinished list?
-* Is there any trailing conjunction?
-* Is there an ellipsis?
-* Is the DRAFT within the character limit?
+- Is the final sentence complete?
+- Is the thought complete?
+- Does the ending read naturally?
+- Is there any unfinished list?
+- Is there any trailing conjunction?
+- Is there an ellipsis?
+- Is the DRAFT within the character limit?
 
 If any answer is NO, rewrite the DRAFT shorter until all
 conditions are satisfied.
@@ -540,12 +532,15 @@ OUTPUT FORMAT
 
 Return ONLY these four sections:
 
-CATEGORY: <short accurate category>
+CATEGORY:
+<short accurate category>
 
-CONTENT ANGLE: <professional recommendation for what the creator should
+CONTENT ANGLE:
+<professional recommendation for what the creator should
 write and what perspective to take>
 
-DRAFT: <complete ready-to-post or ready-to-develop social-media draft>
+DRAFT:
+<complete ready-to-post or ready-to-develop social-media draft>
 
 SOURCES:
 <plain source URLs, one per line>
@@ -565,141 +560,115 @@ Do not include citation markers inside the DRAFT.
 Do not use markdown links in the DRAFT.
 """
 
+
 def call_writer(
-research,
-request_type="feed",
-retry=False,
+    research,
+    request_type="feed",
+    retry=False,
 ):
-prompt = build_prompt(
-research,
-request_type=request_type,
-retry=retry,
-)
-
-```
-response = client.chat.completions.create(
-    model=GROQ_MODEL,
-    temperature=0.75,
-    max_tokens=700,
-    messages=[
-        {
-            "role": "system",
-            "content": (
-                "You are a senior crypto research editor "
-                "and content strategist. "
-                "Be fact-grounded, editorially intelligent, "
-                "adaptive and concise. "
-                "Always complete the requested draft."
-            ),
-        },
-        {
-            "role": "user",
-            "content": prompt,
-        },
-    ],
-)
-
-text = response.choices[0].message.content
-
-if not text:
-    raise RuntimeError(
-        "Groq returned an empty response."
+    prompt = build_prompt(
+        research,
+        request_type=request_type,
+        retry=retry,
     )
 
-return text.strip()
-```
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.75,
+        max_tokens=700,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a senior crypto research editor "
+                    "and content strategist. "
+                    "Be fact-grounded, editorially intelligent, "
+                    "adaptive and concise. "
+                    "Always complete the requested draft."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+    )
+
+    text = response.choices[0].message.content
+
+    if not text:
+        raise RuntimeError(
+            "Groq returned an empty response."
+        )
+
+    return text.strip()
+
 
 def format_output(
-model_text,
-research,
-):
-parsed = parse_output(model_text)
-
-```
-category = parsed["category"]
-content_angle = parsed["content_angle"]
-draft = parsed["draft"]
-
-if not category:
-    category = "Crypto intelligence"
-
-if not content_angle:
-    content_angle = (
-        "Identify the strongest evidence-based perspective "
-        "from this development and explain why it matters."
-    )
-
-if not draft:
-    raise RuntimeError(
-        "Groq did not return a usable DRAFT section."
-    )
-
-sources = []
-
-for result in research.get("results", []):
-    url = result.get("url", "").strip()
-
-    if url and url not in sources:
-        sources.append(url)
-
-output = (
-    "CATEGORY:\n"
-    f"{category}\n\n"
-    "CONTENT ANGLE:\n"
-    f"{content_angle}\n\n"
-    "DRAFT:\n"
-    f"{draft}"
-)
-
-if sources:
-    output += "\n\nSOURCES:\n"
-
-    for url in sources:
-        output += f"{url}\n"
-
-return output.strip(), draft
-```
-
-def generate_intelligence(
-research,
-request_type="feed",
-):
-if not GROQ_API_KEY:
-raise RuntimeError(
-"GROQ_API_KEY is missing."
-)
-
-```
-draft_max = get_draft_max(request_type)
-
-model_text = call_writer(
-    research,
-    request_type=request_type,
-    retry=False,
-)
-
-output, draft = format_output(
     model_text,
     research,
-)
+):
+    parsed = parse_output(model_text)
 
-needs_retry = (
-    draft_looks_cut_off(draft)
-    or len(draft) > draft_max
-)
+    category = parsed["category"]
+    content_angle = parsed["content_angle"]
+    draft = parsed["draft"]
 
-if needs_retry:
-    logger.warning(
-        "Generated draft failed validation. "
-        "Length: %d. Maximum: %d.",
-        len(draft),
-        draft_max,
+    if not category:
+        category = "Crypto intelligence"
+
+    if not content_angle:
+        content_angle = (
+            "Identify the strongest evidence-based perspective "
+            "from this development and explain why it matters."
+        )
+
+    if not draft:
+        raise RuntimeError(
+            "Groq did not return a usable DRAFT section."
+        )
+
+    sources = []
+
+    for result in research.get("results", []):
+        url = result.get("url", "").strip()
+
+        if url and url not in sources:
+            sources.append(url)
+
+    output = (
+        "CATEGORY:\n"
+        f"{category}\n\n"
+        "CONTENT ANGLE:\n"
+        f"{content_angle}\n\n"
+        "DRAFT:\n"
+        f"{draft}"
     )
+
+    if sources:
+        output += "\n\nSOURCES:\n"
+
+        for url in sources:
+            output += f"{url}\n"
+
+    return output.strip(), draft
+
+
+def generate_intelligence(
+    research,
+    request_type="feed",
+):
+    if not GROQ_API_KEY:
+        raise RuntimeError(
+            "GROQ_API_KEY is missing."
+        )
+
+    draft_max = get_draft_max(request_type)
 
     model_text = call_writer(
         research,
         request_type=request_type,
-        retry=True,
+        retry=False,
     )
 
     output, draft = format_output(
@@ -707,201 +676,88 @@ if needs_retry:
         research,
     )
 
-if draft_looks_cut_off(draft):
-    raise RuntimeError(
-        "Generated draft appears incomplete."
+    needs_retry = (
+        draft_looks_cut_off(draft)
+        or len(draft) > draft_max
     )
 
-if len(draft) > draft_max:
-    raise RuntimeError(
-        f"Generated draft is too long: "
-        f"{len(draft)} characters. "
-        f"Maximum allowed: {draft_max}."
-    )
+    if needs_retry:
+        logger.warning(
+            "Generated draft failed validation. "
+            "Length: %d. Maximum: %d.",
+            len(draft),
+            draft_max,
+        )
 
-return output
-```
+        model_text = call_writer(
+            research,
+            request_type=request_type,
+            retry=True,
+        )
 
-def create_needs_research(request: str) -> bool:
-"""
-Determine whether /create needs current external context.
+        output, draft = format_output(
+            model_text,
+            research,
+        )
 
-```
-Creative requests such as GM posts, memes and engagement
-posts normally do not require research.
+    if draft_looks_cut_off(draft):
+        raise RuntimeError(
+            "Generated draft appears incomplete."
+        )
 
-Requests involving current events, specific developments,
-prices, launches, announcements, protocols or recent activity
-do require research.
-"""
+    if len(draft) > draft_max:
+        raise RuntimeError(
+            f"Generated draft is too long: "
+            f"{len(draft)} characters. "
+            f"Maximum allowed: {draft_max}."
+        )
 
-lower = request.lower().strip()
-
-direct_creation_patterns = (
-    "gm post",
-    "good morning post",
-    "gn post",
-    "good night post",
-    "monday gm",
-    "tuesday gm",
-    "wednesday gm",
-    "thursday gm",
-    "friday gm",
-    "weekend gm",
-    "funny post",
-    "meme post",
-    "shitpost",
-    "shit post",
-    "motivational post",
-    "engagement post",
-    "community post",
-    "short post",
-    "tweet",
-    "caption",
-)
-
-current_context_patterns = (
-    "today",
-    "tonight",
-    "latest",
-    "recent",
-    "currently",
-    "current",
-    "breaking",
-    "just happened",
-    "this week",
-    "this month",
-    "yesterday",
-    "announcement",
-    "announced",
-    "launch",
-    "launched",
-    "update",
-    "updated",
-    "new development",
-    "development",
-    "news",
-    "price",
-    "chart",
-    "market move",
-    "market movement",
-    "market",
-    "bitcoin",
-    "btc",
-    "ethereum",
-    "eth",
-    "solana",
-    "sol",
-    "base",
-    "airdrop",
-    "funding",
-    "hack",
-    "hacked",
-    "exploit",
-    "exploit",
-    "smart money",
-    "wallet movement",
-    "wallet movements",
-    "onchain",
-    "on-chain",
-    "protocol",
-    "project",
-    "token",
-)
-
-if any(
-    pattern in lower
-    for pattern in current_context_patterns
-):
-    return True
-
-if any(
-    pattern in lower
-    for pattern in direct_creation_patterns
-):
-    return False
-
-return False
-```
-
+    return output
 def generate_content(
-request: str,
-research=None,
+    request: str,
+    research=None,
 ):
-"""
-Generate ready-to-post creator content.
+    """
+    Generate finished, ready-to-post creator content.
 
-```
-For current or factual requests, research is performed first.
+    This is intentionally separate from generate_intelligence().
+    /research and /feed continue using the intelligence pipeline.
+    /create uses this creator pipeline.
+    """
 
-For purely creative requests, the writer works directly from
-the creator's writing profile.
-"""
-
-if not GROQ_API_KEY:
-    raise RuntimeError(
-        "GROQ_API_KEY is missing."
-    )
-
-request = request.strip()
-
-if not request:
-    raise RuntimeError(
-        "Create request cannot be empty."
-    )
-
-if research is None and create_needs_research(request):
-    try:
-        from research import search_web
-
-        logger.info(
-            "Create request requires research: %s",
-            request,
+    if not GROQ_API_KEY:
+        raise RuntimeError(
+            "GROQ_API_KEY is missing."
         )
 
-        research = search_web(
-            request
+    request = request.strip()
+
+    if not request:
+        raise RuntimeError(
+            "Create request cannot be empty."
         )
 
-        if not research:
-            research = None
+    profile = load_writer_profile()
 
-        elif not research.get("results"):
-            research = None
+    research_text = ""
 
-    except Exception:
-        logger.exception(
-            "Create research failed."
+    if research and research.get("results"):
+        research_text = build_research_text(
+            research
         )
 
-        research = None
+    prompt = f"""
+You are the dedicated crypto/Web3 content creator for this creator brand.
 
-profile = load_writer_profile()
-
-research_text = ""
-
-if research and research.get("results"):
-    research_text = build_research_text(
-        research
-    )
-
-prompt = f"""
-```
-
-You are the dedicated content creator for a crypto/Web3 creator brand.
-
-The user wants you to CREATE something they can publish.
+The user has asked you to CREATE CONTENT.
 
 USER REQUEST:
 {request}
 
-CURRENT RESEARCH / CONTEXT:
-{research_text if research_text else "No external research is required for this request."}
+RESEARCH / CURRENT CONTEXT:
+{research_text if research_text else "No external research was supplied."}
 
 WRITER PROFILE
-
-EXAMPLES:
-{profile["examples"]}
 
 PATTERNS:
 {profile["patterns"]}
@@ -909,173 +765,263 @@ PATTERNS:
 RULES:
 {profile["rules"]}
 
-YOUR TASK
+EXAMPLES:
+{profile["examples"]}
 
-Understand exactly what the user wants to create.
 
-The request may ask for:
+YOUR JOB
 
-* a GM post
-* good morning post
-* market observation
-* educational post
-* explainer
-* opinion
-* hot take
-* reaction
-* breaking-news post
-* funny crypto post
-* meme-style post
-* thread
-* guide
-* technical explanation
-* storytelling post
-* contrarian take
-* community post
-* engagement post
-* or another content format.
+Understand the user's actual content request before writing.
 
-Create the actual finished content.
+The user may ask for:
 
-The output must feel like it was written by the creator,
-not by an AI assistant.
+- a GM post
+- good morning post
+- market observation
+- reaction
+- opinion
+- hot take
+- educational post
+- explainer
+- breaking-news post
+- funny crypto post
+- meme-style post
+- storytelling post
+- guide
+- thread
+- technical explanation
+- contrarian take
+- community post
+- or another crypto/Web3 format.
 
-IMPORTANT CREATION RULES
 
-1. Follow the requested format exactly.
+IMPORTANT: CONTENT TYPE FIRST
 
-2. If the user asks for a GM post, WRITE A GM POST.
+The requested format determines the shape of the output.
 
-Do not explain what GM means.
+If the user says:
 
-Do not write an essay about GM culture.
+"GM post"
 
-Do not turn the request into research unless current
-information is actually necessary.
+"Crypto GM post"
 
-3. If the user asks for a meme, write the meme.
+"write a GM"
 
-4. If the user asks for an opinion, write the opinion.
+"good morning crypto post"
 
-5. If the user asks for an educational post, explain the
-   subject clearly in the creator's voice.
+then create an actual GM post.
 
-6. If the user asks for a current-event post, use the supplied
-   research to understand what actually happened.
+Do NOT turn it into a research report.
 
-7. Research is context, not the final output.
+Do NOT explain what GM means unless that is specifically requested.
 
-8. Do not blindly include every researched fact.
+Do NOT produce CATEGORY, CONTENT ANGLE, DRAFT, or SOURCES.
 
-9. Select only information that strengthens the requested post.
+The result should feel like something the creator would actually post on crypto Twitter/X that morning.
 
-10. If the research is irrelevant to the requested creative
-    format, ignore it.
+A GM post can use a current market observation, interesting development, community sentiment, humor, a simple thought, or a timely crypto reference when useful.
 
-11. Never invent facts, numbers, events, quotes or experiences.
+It does NOT need to mention news.
 
-12. Do not pretend the creator personally experienced something
-    unless the user explicitly provided that experience.
+Do not force research into a GM post simply because research is available.
 
-13. The writing should feel human.
 
-14. Avoid generic AI phrases.
+CURRENT CONTEXT AND RESEARCH
 
-15. Avoid corporate language.
+When the request benefits from current information, use the supplied research.
 
-16. Avoid unnecessary motivational language.
+Use research especially when the user asks for:
 
-17. Avoid forced slang.
+- today's market
+- current events
+- latest news
+- reactions
+- breaking news
+- what is happening
+- current protocols/projects
+- recent launches
+- recent market movements
+- current narratives
+- recent crypto Twitter discussions
 
-18. Avoid forced emojis.
+Research is context, not a script.
 
-19. Avoid unnecessary hashtags.
+Extract only information that genuinely improves the requested content.
 
-20. Do not over-explain.
+Never dump research into the post.
 
-21. Do not write an introduction explaining what you are about
-    to do.
+Never invent facts.
 
-22. Do not say "here's a post".
+Never invent personal experiences.
 
-23. Do not mention AI.
+Never claim the creator personally did something unless the user supplied that information.
 
-24. Do not wrap the content in quotation marks.
 
-25. Do not provide CATEGORY.
+WRITING STYLE
 
-26. Do not provide CONTENT ANGLE.
+Write like a real crypto creator.
 
-27. Do not provide DRAFT.
+Use the writer profile as the creator's writing DNA.
 
-28. Do not provide SOURCES unless the user explicitly asks
-    for sources.
+Do not mechanically copy the examples.
 
-29. Return ONLY the finished content.
+Do not reuse distinctive phrases from the examples.
 
-WRITING DNA
+Do not make every post sound the same.
 
-Use the examples as evidence of the creator's voice.
+Do not force slang.
 
-Use patterns as guidance, not as a rigid template.
+Do not force lowercase.
 
-Use rules as constraints.
+Do not force emojis.
 
-Do not copy complete sentences or distinctive phrases from
-the examples.
+Do not force hashtags.
 
-Do not repeatedly use the same hook.
+Do not use generic AI motivational language.
 
-Do not repeatedly use the same structure.
+Avoid phrases such as:
 
-The subject should influence the structure.
+"the future is here"
 
-The requested format should influence the structure.
+"game changer"
 
-The creator's writing DNA should influence the expression.
+"this changes everything"
 
-FINAL CHECK
+"the next big thing"
+
+unless the context genuinely calls for them.
+
+The writing should feel natural, specific and intentional.
+
+Short sentences are allowed.
+
+Fragments are allowed when they feel natural to the creator.
+
+Line breaks may be used when they improve the post.
+
+The output should look like a real social post, not an essay.
+
+
+GM-SPECIFIC BEHAVIOR
+
+When the request is a GM post:
+
+- make it feel current
+- make it feel human
+- give it a reason to exist
+- it can be casual, funny, observational, reflective, market-aware or slightly provocative
+- it can reference something happening in crypto when that improves it
+- avoid generic "rise and grind" language
+- avoid corporate motivational language
+- avoid explaining the meaning of GM
+- do not make every GM post sound inspirational
+- do not use the same GM structure every time
+
+The post should be something people could naturally reply to.
+
+
+FACTUAL DISCIPLINE
+
+Do not invent:
+
+- prices
+- percentages
+- dates
+- launches
+- partnerships
+- funding
+- user numbers
+- token performance
+- protocol activity
+- quotes
+- announcements
+- personal experiences
+
+If research contains uncertainty, do not present speculation as fact.
+
+If the request is creative and does not require factual claims, creative writing is allowed.
+
+
+OUTPUT RULES
+
+Return ONLY the finished content.
+
+Do NOT return:
+
+CATEGORY:
+CONTENT ANGLE:
+DRAFT:
+SOURCES:
+ANALYSIS:
+SUMMARY:
+EXPLANATION:
+NOTES:
+
+Do not say:
+
+"Here is your post"
+
+"Here's a draft"
+
+"Based on the research"
+
+"According to the sources"
+
+Do not explain your reasoning.
+
+Do not wrap the post in quotation marks.
+
+Do not use markdown code fences.
+
+Do not include source URLs unless the user explicitly asks for them.
+
+Make the result ready to copy and post immediately.
+
+
+QUALITY CHECK
 
 Before returning the content, silently check:
 
-* Does this actually answer the user's creation request?
-* Does it look ready to publish?
-* Does it sound like the creator?
-* Did I avoid unnecessary explanation?
-* Did I avoid inventing facts?
-* Did I follow the requested format?
+1. Did I actually follow the requested content type?
+2. If this is a GM request, does it actually feel like a GM post?
+3. Is it natural?
+4. Does it sound like a human crypto creator?
+5. Did I avoid unnecessary research?
+6. Did I avoid invented facts?
+7. Is the post complete?
+8. Did I avoid generic AI language?
+9. Did I return ONLY the content?
 
-Return ONLY the finished content.
+If any answer is NO, rewrite before returning.
 """
 
-```
-response = client.chat.completions.create(
-    model=GROQ_MODEL,
-    temperature=0.8,
-    max_tokens=700,
-    messages=[
-        {
-            "role": "system",
-            "content": (
-                "You are a senior crypto content creator "
-                "and editorial strategist. "
-                "Create natural, human, ready-to-post "
-                "crypto content. "
-                "Follow the requested format exactly."
-            ),
-        },
-        {
-            "role": "user",
-            "content": prompt,
-        },
-    ],
-)
-
-text = response.choices[0].message.content
-
-if not text:
-    raise RuntimeError(
-        "Groq returned an empty response."
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.85,
+        max_tokens=700,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a senior crypto content creator "
+                    "and editorial strategist. "
+                    "Create natural, human, ready-to-post "
+                    "crypto content. "
+                    "Follow the requested content format exactly."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
     )
 
-return clean_model_text(text)
+    text = response.choices[0].message.content
+
+    if not text:
+        raise RuntimeError(
+            "Groq returned an empty response."
+        )
+
+    return clean_model_text(text).strip()
