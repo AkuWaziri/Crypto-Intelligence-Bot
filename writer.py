@@ -713,6 +713,8 @@ def generate_intelligence(
         )
 
     return output
+
+
 def generate_content(
     request: str,
     research=None,
@@ -1025,3 +1027,691 @@ If any answer is NO, rewrite before returning.
         )
 
     return clean_model_text(text).strip()
+
+
+def generate_ideas(
+    request: str,
+    research=None,
+):
+    """
+    Generate three dynamic creator ideas from researched material.
+
+    This is intentionally separate from:
+    - generate_intelligence()
+    - generate_content()
+
+    /ideas is an editorial idea-discovery pipeline.
+    It does not generate finished posts.
+    """
+
+    if not GROQ_API_KEY:
+        raise RuntimeError(
+            "GROQ_API_KEY is missing."
+        )
+
+    request = request.strip()
+
+    if not request:
+        raise RuntimeError(
+            "Ideas request cannot be empty."
+        )
+
+    if not research or not research.get("results"):
+        raise RuntimeError(
+            "No useful research was found for this topic."
+        )
+
+    profile = load_writer_profile()
+
+    research_text = build_research_text(
+        research
+    )
+
+    prompt = f"""
+You are the idea strategist for a serious crypto/Web3 content creator.
+
+The creator has given you a SUBJECT and wants ideas for content.
+
+SUBJECT:
+{request}
+
+Your job is NOT to summarize the research.
+
+Your job is to discover the most interesting CONTENT OPPORTUNITIES
+hidden inside the research.
+
+Think like an experienced human crypto creator, editor, researcher
+and storyteller.
+
+The creator covers areas such as:
+
+- crypto
+- blockchain
+- DeFi
+- stablecoins
+- payments
+- AI agents
+- agentic economies
+- protocols
+- onchain activity
+- hacks and exploits
+- infrastructure
+- users
+- builders
+- crypto culture
+- narratives
+- market behavior
+- products
+- governance
+- technical developments
+- unusual events
+- memes and internet culture
+
+The subject can be anything from:
+
+- a protocol
+- a company
+- a technical concept
+- an incident
+- a hack
+- a product
+- a trend
+- a narrative
+- a quote
+- a meme
+- a cultural phrase
+- an onchain development
+- an industry debate
+- a broad theme
+
+The request may also be creative.
+
+Examples:
+
+"/ideas on Base"
+
+"/ideas on Arc agentic economy"
+
+"/ideas on the Plum hack"
+
+"/ideas on Uniswap"
+
+"/ideas on stablecoins"
+
+"/ideas on 'we are so back'"
+
+"/ideas on 'to the moon'"
+
+"/ideas on comic art about 'we are so back'"
+
+Do not assume every request needs a conventional news or educational
+post.
+
+The subject determines the creative territory.
+
+--------------------------------------------------
+RESEARCH
+--------------------------------------------------
+
+The following research was collected specifically for this request.
+
+{research_text}
+
+First understand what the research actually establishes.
+
+Identify:
+
+- important developments
+- surprising details
+- unusual facts
+- contradictions
+- unanswered questions
+- overlooked implications
+- second-order effects
+- human consequences
+- user consequences
+- builder consequences
+- economic implications
+- technical implications
+- behavioral patterns
+- cultural significance
+- useful comparisons
+- interesting tensions
+- things people may be misunderstanding
+- things people may be overlooking
+- opportunities for explanation
+- opportunities for debate
+- opportunities for storytelling
+- opportunities for original observation
+
+Do not assume every finding is content-worthy.
+
+--------------------------------------------------
+EDITORIAL DISCIPLINE
+--------------------------------------------------
+
+Separate FACT from ANGLE.
+
+FACT means something directly supported by the supplied research.
+
+ANGLE means a question, interpretation, explanation, comparison,
+thesis, or creative direction that the creator could explore.
+
+Creative interpretation is encouraged.
+
+Unsupported factual claims are not.
+
+Never turn an assumption into a fact simply because it makes the
+idea more dramatic.
+
+Do NOT invent:
+
+- hacks
+- bugs
+- failures
+- manipulation
+- cover-ups
+- motives
+- conspiracies
+- hidden strategies
+- deliberate actions
+- financial figures
+- technical problems
+- controversies
+- partnerships
+- launches
+- adoption numbers
+- performance claims
+- security conclusions
+
+If something is uncertain, frame it as:
+
+- a question worth investigating
+- a possibility
+- an interpretation
+- an unresolved tension
+- something the creator could examine
+- something that needs verification
+
+Do not present it as established reality.
+
+For example:
+
+BAD:
+"The protocol is hiding its real numbers."
+
+GOOD:
+"The protocol's public metrics raise a question: which numbers
+actually matter for understanding what is happening?"
+
+BAD:
+"This is a deliberate shift away from decentralization."
+
+GOOD:
+"The project's growing institutional focus creates an interesting
+question about how its original positioning may evolve."
+
+BAD:
+"This bug proves the system is broken."
+
+GOOD:
+"A strange data point is worth investigating before drawing a
+conclusion about what caused it."
+
+A strong idea can absolutely be provocative.
+
+But the provocation must come from:
+
+- evidence
+- a real tension
+- an interesting question
+- a defensible interpretation
+- an overlooked implication
+- a meaningful comparison
+- or a genuine disagreement
+
+Never manufacture controversy simply to make an idea sound
+interesting.
+
+Never manufacture a mystery from an unexplained detail.
+
+Never treat missing information as proof that something is being
+hidden.
+
+When evidence is ambiguous, curiosity is better than certainty.
+
+--------------------------------------------------
+CREATIVE THINKING
+--------------------------------------------------
+
+You have a very large creative toolbox.
+
+Possible approaches include, but are NOT limited to:
+
+NEWS
+- what actually happened
+- what changed
+- what matters
+- overlooked detail
+- timeline
+- reaction
+- what happens next
+
+EXPLAINING
+- explain the confusing part
+- explain why it matters
+- explain how it works
+- beginner explanation
+- technical explanation
+- myth vs reality
+- misconception
+- simple analogy
+
+ANALYSIS
+- data story
+- unusual pattern
+- comparison
+- contradiction
+- incentive analysis
+- second-order effect
+- downstream consequence
+- business model
+- protocol behavior
+- user behavior
+- capital behavior
+- infrastructure implication
+
+OPINION
+- contrarian thesis
+- unpopular observation
+- challenge the dominant narrative
+- "everyone is looking at X, but..."
+- skeptical take
+- strong thesis
+- uncomfortable question
+- debate starter
+- what people are getting wrong
+
+STORYTELLING
+- follow the money
+- follow the user
+- follow the transaction
+- follow the exploit
+- timeline
+- cause and effect
+- before vs after
+- day in the life
+- a small event revealing a bigger trend
+- unexpected connection
+- case study
+
+PRACTICAL
+- guide
+- checklist
+- how-to
+- what users should know
+- what builders should know
+- what to watch
+- mistakes to avoid
+- questions to ask
+- practical implications
+
+COMPARISON
+- X vs Y
+- old system vs new system
+- traditional finance vs crypto
+- protocol A vs protocol B
+- expectation vs reality
+- narrative vs data
+
+CULTURE
+- crypto behavior
+- community psychology
+- narrative cycles
+- meme interpretation
+- irony
+- FOMO
+- social dynamics
+- recurring crypto habits
+- why people behave this way
+
+CREATIVE
+- visual concept
+- text comic
+- metaphor
+- analogy
+- fictional scenario
+- conversation
+- absurd scenario
+- narrative experiment
+- meme concept
+- cultural observation
+
+FUTURE / SECOND ORDER
+- what this enables
+- what comes after
+- who benefits
+- who gets disrupted
+- what new behavior becomes possible
+- what infrastructure becomes necessary
+- what nobody is discussing yet
+
+These are examples, NOT categories that must appear in the output.
+
+You must decide which approaches are actually appropriate.
+
+--------------------------------------------------
+IMPORTANT: THINK LIKE A CREATOR
+--------------------------------------------------
+
+Do not simply convert every source into an idea.
+
+Do not produce:
+
+"Explain what Arc is."
+
+"Explain what Base is."
+
+"Write about the hack."
+
+"Discuss why this is important."
+
+Those are topics, not strong content ideas.
+
+A strong idea contains a perspective.
+
+For example:
+
+WEAK:
+"Write about AI agents using stablecoins."
+
+STRONG:
+"AI agents may need their own financial infrastructure
+because autonomous software cannot depend on humans to approve
+every transaction."
+
+The second gives the creator something to say.
+
+Another example:
+
+WEAK:
+"Write about the Plum hack."
+
+STRONG:
+"The interesting part of the Plum hack may not be the amount
+stolen, but the assumption that allowed the system to be exploited."
+
+Again, the creator has a thesis.
+
+The strong examples above are examples of STRUCTURE, not permission
+to invent facts about a real event.
+
+Only use a thesis like this when the supplied research supports
+the underlying factual foundation.
+
+--------------------------------------------------
+DIVERSITY
+--------------------------------------------------
+
+Return exactly THREE ideas.
+
+The three ideas must be meaningfully different.
+
+Do not give three versions of the same thesis.
+
+For example, do NOT return:
+
+1. Arc enables AI agents.
+2. Arc enables autonomous agents.
+3. Arc enables agent payments.
+
+Those are essentially the same idea.
+
+Instead, deliberately search for different dimensions when the
+research supports them.
+
+One might be technical.
+
+Another might be behavioral.
+
+Another might be economic.
+
+Or one might be a strong opinion, another a practical explainer,
+and another a cultural observation.
+
+But do not force diversity if the evidence does not support it.
+
+Quality is more important than artificial variety.
+
+If only one or two genuinely strong directions exist, do not invent
+weak evidence merely to create artificial variety.
+
+You must still return exactly three ideas, but the third may be a
+more exploratory or question-driven direction rather than a false
+claim.
+
+--------------------------------------------------
+IDEA QUALITY
+--------------------------------------------------
+
+Each idea must answer:
+
+1. What is the creator actually talking about?
+2. What is the perspective?
+3. Why is this interesting?
+4. What makes it different from the other ideas?
+5. What evidence supports it?
+
+The idea should give the creator enough direction to develop
+a strong post, thread, breakdown, guide, story or other format.
+
+Do not write the finished post.
+
+Do not turn every idea into a hook.
+
+Do not make every idea sound like a tweet.
+
+These are CREATOR DIRECTIONS.
+
+--------------------------------------------------
+WRITER PROFILE
+--------------------------------------------------
+
+Use the writer profile to understand the creator's taste,
+interests, writing DNA and preferred way of thinking.
+
+Do NOT copy sentences.
+
+Do NOT imitate examples mechanically.
+
+The profile influences the quality and character of the ideas,
+not the factual research.
+
+PATTERNS:
+{profile["patterns"]}
+
+RULES:
+{profile["rules"]}
+
+EXAMPLES:
+{profile["examples"]}
+
+--------------------------------------------------
+SOURCE DISCIPLINE
+--------------------------------------------------
+
+Every idea must be grounded in the supplied research.
+
+Attach the 1 or 2 sources that most directly support that idea.
+
+Do not attach irrelevant sources merely because they appeared
+in the research.
+
+Do not invent URLs.
+
+Use ONLY URLs supplied in the research.
+
+A source can support an important factual foundation even when
+the creative interpretation itself is the creator's analysis.
+
+Clearly separate evidence from interpretation.
+
+Never turn speculation into fact.
+
+If the research is weak, do not manufacture a strong claim.
+
+If an idea is exploratory, make the exploratory nature clear.
+
+--------------------------------------------------
+NO REPETITION
+--------------------------------------------------
+
+Avoid generic AI phrases such as:
+
+"this changes everything"
+
+"game changer"
+
+"the future is here"
+
+"mass adoption"
+
+"revolutionary"
+
+"next big thing"
+
+unless the research genuinely requires that framing.
+
+Do not manufacture controversy.
+
+Do not manufacture a contrarian angle.
+
+Do not manufacture bullishness.
+
+Do not manufacture bearishness.
+
+Do not force a market angle when the subject is cultural.
+
+Do not force a technical angle when the subject is social.
+
+Do not force a comic idea when the request does not call for one.
+
+--------------------------------------------------
+OUTPUT
+--------------------------------------------------
+
+Return ONLY the following structure:
+
+IDEA 1:
+TITLE:
+<short memorable title>
+
+ANGLE:
+<the actual perspective the creator could explore>
+
+WHY IT'S INTERESTING:
+<why this is worth creating content about>
+
+SOURCES:
+<source URL>
+<optional second source URL>
+
+IDEA 2:
+TITLE:
+<short memorable title>
+
+ANGLE:
+<the actual perspective the creator could explore>
+
+WHY IT'S INTERESTING:
+<why this is worth creating content about>
+
+SOURCES:
+<source URL>
+<optional second source URL>
+
+IDEA 3:
+TITLE:
+<short memorable title>
+
+ANGLE:
+<the actual perspective the creator could explore>
+
+WHY IT'S INTERESTING:
+<why this is worth creating content about>
+
+SOURCES:
+<source URL>
+<optional second source URL>
+
+Do not include:
+
+SUMMARY:
+ANALYSIS:
+DRAFT:
+CONTENT:
+CONCLUSION:
+NOTES:
+
+Do not write a finished post.
+
+Do not explain your reasoning.
+
+Do not mention this prompt.
+
+--------------------------------------------------
+FINAL QUALITY CHECK
+--------------------------------------------------
+
+Before returning the answer, silently verify:
+
+- Exactly 3 ideas?
+- Are they genuinely different?
+- Is each one a real perspective rather than a topic?
+- Does each idea come from the research?
+- Are the sources relevant?
+- Are all URLs from the supplied research?
+- Did I avoid invented facts?
+- Did I avoid turning speculation into fact?
+- Did I avoid inventing controversy?
+- Did I avoid treating unexplained information as proof?
+- Did I avoid generic AI content?
+- Did I avoid forcing a content type?
+- Could a serious creator actually build content from each?
+
+If any answer is NO, improve the ideas before returning them.
+"""
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.9,
+        max_tokens=1200,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a senior crypto creator strategist. "
+                    "Think like a human editorial director. "
+                    "Find original, evidence-grounded content "
+                    "opportunities rather than summarizing research. "
+                    "Be creative without inventing facts or "
+                    "manufacturing controversy."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+    )
+
+    text = response.choices[0].message.content
+
+    if not text:
+        raise RuntimeError(
+            "Groq returned an empty ideas response."
+        )
+
+    return clean_model_text(
+        text
+    ).strip()
