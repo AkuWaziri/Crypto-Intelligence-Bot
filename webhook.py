@@ -16,7 +16,11 @@ from telegram.ext import (
 from config import TELEGRAM_BOT_TOKEN
 from niches import get_niches, add_niche
 from research import search_web
-from writer import generate_intelligence, generate_content
+from writer import (
+    generate_intelligence,
+    generate_content,
+    generate_ideas,
+)
 
 
 logging.basicConfig(
@@ -46,6 +50,7 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
+/ideas &lt;topic&gt; — discover researched content ideas
 /create &lt;request&gt; — research and create content
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
@@ -57,6 +62,20 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /research crypto payments
 
 /research suspicious smart contracts
+
+/ideas on Base
+
+/ideas on Arc
+
+/ideas on Uniswap
+
+/ideas on the Plum hack
+
+/ideas on stablecoins
+
+/ideas on Arc agentic economy
+
+/ideas on "we are so back"
 
 /create Crypto GM post
 
@@ -232,6 +251,82 @@ async def research_command(
             )
 
 
+async def ideas_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    if not update.message:
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Usage:\n"
+            "/ideas <topic or subject>\n\n"
+            "Examples:\n"
+            "/ideas on Base\n"
+            "/ideas on Arc\n"
+            "/ideas on Uniswap\n"
+            "/ideas on the Plum hack\n"
+            "/ideas on stablecoins\n"
+            "/ideas on Arc agentic economy\n"
+            '/ideas on "we are so back"'
+        )
+        return
+
+    request_text = " ".join(
+        context.args
+    ).strip()
+
+    status = await update.message.reply_text(
+        f"💡 Researching ideas:\n{request_text}"
+    )
+
+    try:
+        research = await asyncio.to_thread(
+            search_web,
+            request_text,
+        )
+
+        if not research.get("results"):
+            await status.edit_text(
+                "❌ No useful research found "
+                "for this subject."
+            )
+            return
+
+        ideas = await asyncio.to_thread(
+            generate_ideas,
+            request_text,
+            research,
+        )
+
+        if not ideas:
+            raise RuntimeError(
+                "No ideas were generated."
+            )
+
+        await status.delete()
+
+        await send_message(
+            update,
+            ideas,
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Ideas generation failed."
+        )
+
+        try:
+            await status.edit_text(
+                f"❌ Ideas failed.\n\n{exc}"
+            )
+        except Exception:
+            await update.message.reply_text(
+                f"❌ Ideas failed.\n\n{exc}"
+            )
+
+
 async def create_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -400,6 +495,13 @@ def setup_handlers():
         CommandHandler(
             "research",
             research_command,
+        )
+    )
+
+    telegram_app.add_handler(
+        CommandHandler(
+            "ideas",
+            ideas_command,
         )
     )
 
