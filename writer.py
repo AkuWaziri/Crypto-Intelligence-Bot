@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================
-# PROFILE
+# CREATOR IDENTITY
 # ============================================================
 
 def read_profile_file(filename):
@@ -69,6 +69,94 @@ def load_writer_profile():
 
 
 # ============================================================
+# HUMAN WRITING STRUCTURES
+# ============================================================
+
+HUMAN_WRITING_STRUCTURES = [
+    {
+        "name": "Observation → Reveal → Implication",
+        "use_when": "A small visible detail reveals a bigger story.",
+    },
+    {
+        "name": "Strange Detail → Explanation → Bigger Picture",
+        "use_when": "The story contains an unusual or overlooked detail.",
+    },
+    {
+        "name": "Claim → Evidence → Consequence",
+        "use_when": "The research contains a strong factual claim and measurable evidence.",
+    },
+    {
+        "name": "Question → Discovery → Realization",
+        "use_when": "The topic becomes interesting through investigation.",
+    },
+    {
+        "name": "Contradiction → Why → Payoff",
+        "use_when": "Two facts appear to conflict or create an unexpected result.",
+    },
+    {
+        "name": "Before → Change → After",
+        "use_when": "Something materially changed over time.",
+    },
+    {
+        "name": "Small Event → Hidden Mechanism → Large Consequence",
+        "use_when": "A seemingly small event exposes an important mechanism.",
+    },
+    {
+        "name": "Number → Context → Meaning",
+        "use_when": "A striking number needs context before its importance becomes clear.",
+    },
+    {
+        "name": "Common Assumption → Correction → Better Model",
+        "use_when": "The obvious interpretation is incomplete or wrong.",
+    },
+    {
+        "name": "Story → Detail → Lesson",
+        "use_when": "A concrete event can teach a broader concept.",
+    },
+    {
+        "name": "What Happened → What People Think → What Is Actually Happening",
+        "use_when": "The public interpretation differs from the underlying mechanism.",
+    },
+    {
+        "name": "Mechanism First",
+        "use_when": "Understanding the mechanism is more useful than starting with the headline.",
+    },
+    {
+        "name": "Consequence First",
+        "use_when": "The outcome is more interesting than the event that caused it.",
+    },
+    {
+        "name": "Incentive → Behavior → Result",
+        "use_when": "People or protocols behave in response to an economic incentive.",
+    },
+    {
+        "name": "Timeline → Inflection Point → Current State",
+        "use_when": "The story makes sense through a sequence of events.",
+    },
+    {
+        "name": "Case Study",
+        "use_when": "One concrete example explains a larger system.",
+    },
+    {
+        "name": "Myth → Evidence → Reality",
+        "use_when": "A common belief can be tested against the evidence.",
+    },
+    {
+        "name": "Problem → Mechanism → Solution",
+        "use_when": "The content is educational, practical or guide-oriented.",
+    },
+    {
+        "name": "Discovery Log",
+        "use_when": "The story works naturally as a sequence of findings.",
+    },
+    {
+        "name": "One Thing → Why It Matters",
+        "use_when": "One overlooked fact carries most of the story.",
+    },
+]
+
+
+# ============================================================
 # TEXT CLEANING
 # ============================================================
 
@@ -91,6 +179,23 @@ def clean_model_text(text):
         text,
         flags=re.IGNORECASE,
     )
+
+    # Fix common encoding corruption.
+    replacements = {
+        "â€”": "—",
+        "â€“": "–",
+        "â€˜": "‘",
+        "â€™": "’",
+        "â€œ": "“",
+        "â€ ": "”",
+        "Â": "",
+    }
+
+    for bad, good in replacements.items():
+        text = text.replace(
+            bad,
+            good,
+        )
 
     return text.strip()
 
@@ -167,64 +272,207 @@ def draft_looks_cut_off(text):
 
     last_character = text[-1]
 
-    if last_character not in ".!?\"')]}":
-        return True
-
-    return False
+    return last_character not in ".!?\"')]}"
 
 
 # ============================================================
-# RESEARCH FORMATTING
+# RESEARCH COMPRESSION
 # ============================================================
 
-def build_research_text(research):
+def _clean_research_content(content, max_chars):
+    content = str(
+        content or ""
+    ).strip()
+
+    content = re.sub(
+        r"\s+",
+        " ",
+        content,
+    )
+
+    if len(content) > max_chars:
+        content = content[:max_chars].rstrip()
+
+    return content
+
+
+def _research_result_score(result):
+    try:
+        return float(
+            result.get(
+                "score",
+                0,
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+def build_research_text(
+    research,
+    max_results=12,
+    max_content_chars=850,
+):
+    """
+    Build a compact evidence packet for Groq.
+
+    Research can contain up to 30 candidates, but the model
+    should not receive all of them at full length.
+
+    This prevents large research sweeps from turning into
+    oversized Groq requests while preserving the strongest
+    evidence and multiple research angles.
+    """
+
     if not research:
         return ""
 
     sections = []
 
-    answer = research.get("answer", "")
+    answer = (
+        research.get(
+            "answer",
+            "",
+        )
+        or ""
+    ).strip()
 
     if answer:
         sections.append(
-            f"RESEARCH SUMMARY:\n{answer}"
+            "RESEARCH SUMMARY:\n"
+            + _clean_research_content(
+                answer,
+                1200,
+            )
         )
 
-    results = research.get(
-        "results",
-        [],
+    results = list(
+        research.get(
+            "results",
+            [],
+        )
+        or []
     )
 
-    for index, result in enumerate(
+    # The research engine already ranks results.
+    # Keep that ranking but preserve angle diversity.
+    ranked = sorted(
         results,
+        key=_research_result_score,
+        reverse=True,
+    )
+
+    selected = []
+    angle_counts = {}
+
+    # First pass: evidence diversity.
+    for result in ranked:
+        angle = str(
+            result.get(
+                "research_angle",
+                "general",
+            )
+            or "general"
+        )
+
+        count = angle_counts.get(
+            angle,
+            0,
+        )
+
+        if count >= 3:
+            continue
+
+        selected.append(result)
+
+        angle_counts[angle] = count + 1
+
+        if len(selected) >= max_results:
+            break
+
+    # Second pass: strongest remaining evidence.
+    selected_urls = {
+        str(
+            item.get(
+                "url",
+                "",
+            )
+        ).strip()
+        for item in selected
+    }
+
+    if len(selected) < max_results:
+        for result in ranked:
+            if len(selected) >= max_results:
+                break
+
+            url = str(
+                result.get(
+                    "url",
+                    "",
+                )
+                or ""
+            ).strip()
+
+            if url and url in selected_urls:
+                continue
+
+            selected.append(result)
+
+            if url:
+                selected_urls.add(url)
+
+    for index, result in enumerate(
+        selected,
         start=1,
     ):
         title = (
-            result.get("title", "")
+            result.get(
+                "title",
+                "",
+            )
             or "Untitled"
+        ).strip()
+
+        content = _clean_research_content(
+            result.get(
+                "content",
+                "",
+            ),
+            max_content_chars,
         )
 
-        content = (
-            result.get("content", "")
+        url = (
+            result.get(
+                "url",
+                "",
+            )
             or ""
         ).strip()
 
-        url = (
-            result.get("url", "")
-            or ""
-        ).strip()
+        angle = (
+            result.get(
+                "research_angle",
+                "general",
+            )
+            or "general"
+        )
 
         if not content:
             continue
 
         sections.append(
             f"SOURCE {index}:\n"
+            f"ANGLE: {angle}\n"
             f"TITLE: {title}\n"
-            f"CONTENT: {content}\n"
+            f"EVIDENCE: {content}\n"
             f"URL: {url}"
         )
 
-    return "\n\n".join(sections)
+    return "\n\n".join(
+        sections
+    )
 
 
 def get_draft_max(mode="normal"):
@@ -235,57 +483,276 @@ def get_draft_max(mode="normal"):
 
 
 # ============================================================
+# STRUCTURE SELECTION
+# ============================================================
+
+def format_structure_library():
+    lines = []
+
+    for index, structure in enumerate(
+        HUMAN_WRITING_STRUCTURES,
+        start=1,
+    ):
+        lines.append(
+            f"{index}. "
+            f"{structure['name']} — "
+            f"{structure['use_when']}"
+        )
+
+    return "\n".join(lines)
+
+
+# ============================================================
 # STANDARD CONTENT GENERATION
 # ============================================================
 
 def build_prompt(request_text, research):
     writer_profile = load_writer_profile()
-    research_text = build_research_text(research)
+
+    research_text = build_research_text(
+        research,
+        max_results=12,
+        max_content_chars=850,
+    )
+
+    structures = format_structure_library()
 
     return f"""
-You are writing for a crypto creator.
+You are the writing engine for a distinctive crypto creator.
 
 The creator explains crypto, blockchain, AI agents,
 onchain activity, protocols, infrastructure, money and
-internet culture in a simple, human and memorable way.
+internet culture in simple, human and memorable language.
 
-Do not sound like a corporate content strategist.
-Do not sound like a research report.
-Do not write generic crypto filler.
+The creator is NOT trying to sound like:
 
-CREATOR PROFILE:
+- a corporate publication
+- an SEO writer
+- a research report
+- a marketing strategist
+- an AI assistant
+
+The creator's own writing DNA is the highest authority.
+
+============================================================
+CREATOR DNA
+============================================================
 
 {writer_profile}
 
-USER REQUEST:
+============================================================
+USER REQUEST
+============================================================
 
 {request_text}
 
-RESEARCH:
+============================================================
+RESEARCH
+============================================================
 
 {research_text}
 
-TASK:
+============================================================
+HUMAN WRITING STRUCTURES
+============================================================
+
+{structures}
+
+============================================================
+PRIVATE EDITORIAL PROCESS
+============================================================
+
+Do NOT output this process.
+
+Think deeply before writing.
+
+1. UNDERSTAND THE STORY.
+
+Identify:
+
+- the actual event
+- the important mechanism
+- the strongest evidence
+- the unusual detail
+- the human consequence
+- the useful lesson
+- what remains uncertain
+
+Do not force all of these into the final writing.
+
+2. SEPARATE FACT FROM INTERPRETATION.
+
+FACT:
+Directly supported by the research.
+
+INTERPRETATION:
+A reasonable conclusion from the facts.
+
+UNCERTAINTY:
+Something the research does not establish.
+
+Never present interpretation as confirmed fact.
+
+Never invent:
+
+- numbers
+- dates
+- motives
+- quotes
+- capabilities
+- intentions
+- outcomes
+- users
+- partnerships
+- technical properties
+
+3. FIND THE REAL STORY.
+
+Do not simply rewrite the headline.
+
+Ask:
+
+"What is actually interesting here?"
+
+Look for:
+
+- an unexpected mechanism
+- an incentive
+- a contradiction
+- an overlooked detail
+- a behavioral change
+- a hidden dependency
+- an unusual consequence
+- a surprising number
+- a practical implication
+- something people commonly misunderstand
+
+4. CHOOSE THE BEST STRUCTURE.
+
+Select ONE structure from the library.
+
+Do not announce the structure.
+
+The structure controls:
+
+- order
+- reveal
+- pacing
+- information flow
+
+The creator DNA controls:
+
+- voice
+- rhythm
+- sentence length
+- humor
+- personality
+- word choice
+- level of simplicity
+
+5. BUILD A STRONG OPENING.
+
+Do not begin with:
+
+"Today we're going to talk about..."
+
+"In the world of crypto..."
+
+"Here's everything you need to know..."
+
+"Recently..."
+
+"Let's dive into..."
+
+Start where the interesting thing starts.
+
+6. COMPRESS.
+
+Remove anything that does not improve:
+
+- understanding
+- evidence
+- curiosity
+- rhythm
+- humor
+- usefulness
+- memorability
+
+Rich thinking should produce compressed writing.
+
+7. MAKE IT HUMAN.
+
+Write like a sharp person explaining something to another
+sharp person.
+
+Use plain language.
+
+Use technical terms only when they add precision.
+
+Explain unavoidable jargon naturally.
+
+8. DO NOT OVERWRITE.
+
+A strong sentence beats three average sentences.
+
+A strong observation beats five facts.
+
+One clear idea beats a list.
+
+9. IF HUMOR FITS, USE IT.
+
+Do not force humor.
+
+Do not add generic crypto jokes.
+
+Do not use meme language just because the topic is crypto.
+
+10. FINAL EDIT.
+
+Before returning the writing, ask internally:
+
+Is the first line strong?
+
+Is the central idea clear?
+
+Is every factual claim supported?
+
+Did I accidentally invent anything?
+
+Did I explain too much?
+
+Can I remove 20%?
+
+Does this sound like a person?
+
+Does this sound like THIS creator?
+
+If the answer is no, rewrite.
+
+============================================================
+FINAL TASK
+============================================================
 
 Create the requested content.
 
-Use the research as factual grounding.
+Return ONLY the finished content.
 
-Do not invent facts.
-
-Do not force every research detail into the content.
-
-Prefer one strong idea over several weak ideas.
-
-Write naturally.
-
-Do not explain your writing process.
-
-Return only the finished content.
+Do not describe your process.
+Do not describe the research.
+Do not mention the structure.
+Do not mention the creator profile.
 """.strip()
 
 
-def call_writer(prompt, temperature=0.8, max_tokens=1200):
+# ============================================================
+# GROQ
+# ============================================================
+
+def call_writer(
+    prompt,
+    temperature=0.8,
+    max_tokens=450,
+):
     if not GROQ_API_KEY:
         raise RuntimeError(
             "GROQ_API_KEY is missing."
@@ -295,18 +762,30 @@ def call_writer(prompt, temperature=0.8, max_tokens=1200):
         api_key=GROQ_API_KEY
     )
 
+    # Protect the application from accidental oversized
+    # output requests. The config currently uses a 500-token
+    # ceiling, so staying slightly below that is deliberate.
+    safe_max_tokens = max(
+        100,
+        min(
+            int(max_tokens),
+            450,
+        ),
+    )
+
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_tokens=safe_max_tokens,
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "You are a sharp crypto creator "
-                    "and writer. "
-                    "Be human, clear, specific and "
-                    "original. "
+                    "You are a sharp crypto creator, "
+                    "editor and writer. "
+                    "Think deeply internally. "
+                    "Write clearly, specifically and "
+                    "naturally. "
                     "Never invent facts."
                 ),
             },
@@ -335,58 +814,177 @@ def generate_intelligence(
     context="manual research",
 ):
     writer_profile = load_writer_profile()
-    research_text = build_research_text(research)
+
+    research_text = build_research_text(
+        research,
+        max_results=12,
+        max_content_chars=850,
+    )
 
     prompt = f"""
-You are a crypto intelligence editor.
+You are the intelligence editor behind a distinctive
+crypto creator.
 
-Turn the research below into useful content intelligence
-for a crypto creator.
+Your job is NOT to summarize every source.
 
-CREATOR PROFILE:
+Your job is to determine what is actually worth knowing.
+
+Think like a room full of:
+
+- researchers
+- crypto analysts
+- journalists
+- technical investigators
+- onchain analysts
+- sharp creators
+- skeptical editors
+
+Generate broadly internally.
+
+Then act like a ruthless editor.
+
+Discard:
+
+- obvious information
+- repeated facts
+- weak claims
+- unsupported conclusions
+- generic crypto commentary
+- filler
+- unnecessary context
+
+Surface only the strongest intelligence.
+
+============================================================
+CREATOR DNA
+============================================================
 
 {writer_profile}
 
-CONTEXT:
+============================================================
+CONTEXT
+============================================================
 
 {context}
 
-RESEARCH:
+============================================================
+RESEARCH
+============================================================
 
 {research_text}
 
-Produce a concise intelligence report.
+============================================================
+PRIVATE INTELLIGENCE PROCESS
+============================================================
 
-Focus on:
+Do NOT output this process.
 
-WHAT HAPPENED
-WHY IT MATTERS
-CONTENT ANGLE
+1. Establish what is definitely true.
 
-Use only facts supported by the research.
+2. Identify the strongest evidence.
 
-Do not invent numbers, dates, quotes or claims.
+3. Compare sources.
 
-Do not write a finished social-media post.
+4. Look for contradictions.
 
-Make the angle specific and interesting.
+5. Look for what changed.
 
-Return:
+6. Look for the mechanism underneath the event.
 
-WHAT HAPPENED:
-...
+7. Look for incentives and resulting behavior.
 
-WHY IT MATTERS:
-...
+8. Look for numbers that materially change the story.
 
-CONTENT ANGLE:
-...
+9. Identify what people may misunderstand.
+
+10. Identify what remains unclear.
+
+11. Search mentally for the deeper story.
+
+12. Generate multiple possible interpretations.
+
+13. Kill the obvious ones.
+
+14. Keep only the observations that would make a
+smart creator stop and say:
+
+"Wait. That's interesting."
+
+============================================================
+OUTPUT
+============================================================
+
+Return a compact but information-dense intelligence report.
+
+Use ONLY the sections that are genuinely supported by
+the research.
+
+Do NOT force every section to appear.
+
+Possible sections:
+
+SIGNAL:
+The single most important thing.
+
+WHAT ACTUALLY HAPPENED:
+The factual event or change.
+
+WHY IT IS INTERESTING:
+The specific reason this is more interesting than
+the headline suggests.
+
+THE DETAIL PEOPLE MAY MISS:
+One overlooked fact or relationship.
+
+THE MECHANISM:
+How the system actually works.
+
+WHAT CHANGED:
+Before versus after, when relevant.
+
+THE NUMBERS:
+Only important numbers with context.
+
+INCENTIVE:
+What economic or behavioral incentive is operating,
+when relevant.
+
+WHAT PEOPLE MAY BE GETTING WRONG:
+Only when there is evidence for a misconception.
+
+WHAT IS UNCLEAR:
+Important uncertainty or missing evidence.
+
+CONTENT OPPORTUNITIES:
+2–4 specific things worth turning into content.
+
+RABBIT HOLES:
+2–4 deeper questions worth investigating.
+
+============================================================
+RULES
+============================================================
+
+- Facts must be supported by the research.
+- Clearly label interpretation as interpretation.
+- Never invent numbers.
+- Never invent quotes.
+- Never invent motives.
+- Never invent certainty.
+- Do not write a finished social post.
+- Do not write generic commentary.
+- Do not repeat the same fact in multiple sections.
+- Prefer specificity over volume.
+- Prefer useful intelligence over summary.
+- Keep the final report compressed.
+- No introduction.
+- No conclusion.
 """.strip()
 
     return call_writer(
         prompt,
-        temperature=0.7,
-        max_tokens=1000,
+        temperature=0.65,
+        max_tokens=450,
     )
 
 
@@ -406,7 +1004,7 @@ def generate_content(
     return call_writer(
         prompt,
         temperature=0.85,
-        max_tokens=1400,
+        max_tokens=450,
     )
 
 
@@ -416,11 +1014,13 @@ def generate_content(
 
 def build_idea_research_text(research):
     """
-    Compact factual packet for the creative engine.
+    Compact factual packet for creative ideation.
 
-    Creative ideation needs enough evidence to understand
-    the situation, but does not need the entire research
-    payload.
+    The research engine may return up to 30 candidates.
+    Creative generation only needs the strongest evidence.
+
+    Keeping the packet small protects Groq from oversized
+    requests while retaining enough context for discovery.
     """
 
     if not research:
@@ -429,50 +1029,112 @@ def build_idea_research_text(research):
     sections = []
 
     answer = (
-        research.get("answer", "")
+        research.get(
+            "answer",
+            "",
+        )
         or ""
     ).strip()
 
     if answer:
         sections.append(
-            f"SUMMARY:\n{answer[:1200]}"
+            "SUMMARY:\n"
+            + answer[:1000]
         )
 
-    results = research.get(
-        "results",
-        [],
+    results = list(
+        research.get(
+            "results",
+            [],
+        )
+        or []
     )
 
+    # Results are normally already ranked by research.py.
+    # Keep the strongest 12 while preserving evidence types.
+    ranked = sorted(
+        results,
+        key=_research_result_score,
+        reverse=True,
+    )
+
+    selected = []
+    angle_counts = {}
+
+    for result in ranked:
+        angle = str(
+            result.get(
+                "research_angle",
+                "general",
+            )
+            or "general"
+        )
+
+        count = angle_counts.get(
+            angle,
+            0,
+        )
+
+        if count >= 3:
+            continue
+
+        selected.append(result)
+
+        angle_counts[angle] = count + 1
+
+        if len(selected) >= 12:
+            break
+
     for index, result in enumerate(
-        results[:10],
+        selected,
         start=1,
     ):
         title = (
-            result.get("title", "")
+            result.get(
+                "title",
+                "",
+            )
             or "Untitled"
         ).strip()
 
-        content = (
-            result.get("content", "")
+        content = _clean_research_content(
+            result.get(
+                "content",
+                "",
+            ),
+            750,
+        )
+
+        url = (
+            result.get(
+                "url",
+                "",
+            )
             or ""
         ).strip()
 
-        url = (
-            result.get("url", "")
-            or ""
-        ).strip()
+        angle = (
+            result.get(
+                "research_angle",
+                "general",
+            )
+            or "general"
+        )
 
         if not content:
             continue
 
         sections.append(
             f"SOURCE {index}\n"
+            f"ANGLE: {angle}\n"
             f"TITLE: {title}\n"
-            f"FACTS/CONTEXT: {content[:900]}\n"
+            f"FACTS/CONTEXT: {content}\n"
             f"URL: {url}"
         )
 
-    return "\n\n".join(sections)
+    return "\n\n".join(
+        sections
+    )
 
 
 # ============================================================
@@ -488,76 +1150,93 @@ def build_meme_idea_prompt(
     )
 
     return f"""
-You are a senior comic writer and creative director
+You are the senior comic writer and creative director
 for a distinctive crypto creator.
 
-Your job is to find genuinely interesting, funny,
-strange, ironic or revealing observations inside the
-specific situation below.
+Your job is to find the genuinely interesting human
+observation hiding inside this specific situation.
 
-Do NOT simply illustrate the crypto fact.
+You are NOT illustrating the crypto fact.
 
-Think deeply internally.
+You are discovering what is funny, strange, ironic,
+absurd, revealing or unexpectedly human about it.
 
-The desired creative path is:
-
-FACT → HUMAN BEHAVIOR → OBSERVATION → JOKE
-
-not:
-
-FACT → IMAGE OF FACT
-
-
-USER SITUATION:
+============================================================
+SITUATION
+============================================================
 
 {situation}
 
-
-RESEARCH:
+============================================================
+RESEARCH
+============================================================
 
 {research_text}
 
+============================================================
+CORE CREATIVE PRINCIPLE
+============================================================
+
+FACT
+↓
+HUMAN BEHAVIOR
+↓
+OBSERVATION
+↓
+JOKE
+
+NOT:
+
+FACT
+↓
+LITERAL VISUAL OF FACT
+
+The crypto fact creates the situation.
+
+The human behavior creates the comedy.
 
 ============================================================
-PRIVATE CREATIVE PROCESS
+PRIVATE CREATIVE ROOM
 ============================================================
 
-Do not output this process.
+Do NOT output this process.
 
-1. Understand the confirmed facts.
+Generate a large internal pool of possibilities.
 
-2. Find the human behavior created by the situation.
+Explore aggressively:
 
-3. Find the tiny strange, funny, ironic or unexpected
-detail inside that behavior.
-
-4. Reject the obvious joke.
-
-5. Look one level deeper.
-
-6. Generate many different possibilities internally.
-
-Explore:
-
-- observational
+- observational comedy
 - deadpan
-- absurd
-- ironic
-- conversational
-- visual
-- character-free
-- character-based
-- ordinary-life situations
+- absurdity
+- irony
+- awkward human behavior
+- conversational humor
+- visual situations
+- character-free situations
+- character-based situations
 - ordinary objects
+- ordinary social situations
 - unexpected consequences
 - contradictions
-- awkward human behavior
+- incentives
+- misunderstandings
+- status behavior
+- bureaucracy
+- overconfidence
+- understatement
+- reversal
+- anti-climax
 
-Do not force any particular category.
+Do not force any category.
 
-7. KILL GENERIC CRYPTO JOKES.
+============================================================
+THE ORIGINALITY TEST
+============================================================
 
-Reject:
+Reject anything that feels like the first joke a crypto
+account would make.
+
+Automatically reject:
 
 - FOMO
 - greed
@@ -565,8 +1244,8 @@ Reject:
 - rocket
 - rug
 - trader crying
-- generic "free money"
 - generic panic
+- generic "free money"
 - generic crypto confusion
 - generic institution jokes
 - generic bureaucracy
@@ -579,81 +1258,111 @@ Reject:
 - Ferrari
 - filing cabinet
 
-unless the specific situation creates a genuinely new
-observation.
+These are not forbidden forever.
 
-8. KILL LITERAL ANALOGIES.
+They are forbidden when they are merely obvious.
 
-Do not turn every crypto mechanism into an ordinary object
-just because they superficially resemble each other.
+If one appears, it must contain a genuinely new
+observation specific to this situation.
 
-The resemblance itself is not the joke.
+============================================================
+NO LITERAL ANALOGIES
+============================================================
 
-9. FACT VS JOKE.
+Do not turn a crypto mechanism into an ordinary object
+just because they look similar.
 
-THE JOKE CAN BE ABSURD.
+A vesting schedule is not automatically a calendar.
 
-THE FACTUAL SETUP MUST BE TRUE.
+A wallet is not automatically a wallet.
 
-Never turn:
+A protocol is not automatically an office.
 
-"may" into "does"
+A token is not automatically money falling from the sky.
 
-"could" into "will"
+The resemblance is not the joke.
 
-"some" into "everyone"
+The behavior is.
 
-"described as" into "is"
+============================================================
+FACTUAL DISCIPLINE
+============================================================
+
+The joke may be absurd.
+
+The factual setup may not be.
+
+Never transform:
+
+"may" → "does"
+
+"could" → "will"
+
+"some" → "everyone"
+
+"described as" → "is"
 
 Never invent:
 
 - motives
-- consequences
-- capabilities
 - intentions
-- quotes
+- capabilities
 - restrictions
+- quotes
 - outcomes
+- technical properties
+- user behavior
 
 If the joke requires an unsupported factual claim,
-discard the joke.
+discard it.
 
-10. MAKE THE THREE IDEAS DIFFERENT.
+============================================================
+DISTINCTNESS
+============================================================
 
-The three final ideas must have THREE DIFFERENT
+The three final ideas must have THREE different
 underlying observations.
 
 Changing the:
 
 - character
-- setting
+- location
 - object
 - visual style
 - wording
 
-does NOT make an idea new.
+does not make an idea different.
 
-If two ideas make the same point, keep only the stronger one.
+If two ideas make the same point, kill the weaker one.
 
-11. SIMPLIFY.
+============================================================
+SIMPLICITY
+============================================================
 
-The comic should use the minimum necessary elements.
+Prefer the smallest possible execution.
 
-Prefer:
+One panel can beat four.
 
-- one panel over four
-- two lines over a paragraph
-- one object over a full environment
-- one reaction over five characters
-- one exchange over a long conversation
+Two lines can beat ten.
 
-12. MAKE THE PUNCHLINE PUNCHY.
+One reaction can beat five characters.
 
-The punchline must NOT explain the joke.
+One exchange can beat a conversation.
 
-It must NOT summarize the research.
+One visual detail can beat an elaborate scene.
 
-It must NOT sound like a headline.
+Do not add elements merely to make the idea look
+"creative."
+
+============================================================
+PUNCHLINE
+============================================================
+
+The punchline must not explain the joke.
+
+It must not summarize the research.
+
+It must not sound like a headline.
 
 It should feel like the final click.
 
@@ -661,7 +1370,7 @@ Ask:
 
 "Can I remove half the words?"
 
-If yes, shorten it.
+If yes, remove them.
 
 Prefer:
 
@@ -674,31 +1383,37 @@ Prefer:
 
 Do not force wordplay.
 
-13. ATTACK EVERY IDEA.
+============================================================
+FINAL ATTACK
+============================================================
 
-Ask internally:
+For every candidate, ask internally:
 
 Is this actually funny?
 
 Is this actually an observation?
 
-Am I just repeating the fact?
-
-Did I invent anything?
+Am I merely repeating the fact?
 
 Could another crypto account make this exact joke?
 
 Does this depend on THIS situation?
 
+Did I invent anything?
+
 Can I remove half of it?
 
-Would the idea work without crypto jargon?
+Would someone understand it immediately?
+
+Would it still be interesting without crypto jargon?
 
 If not, discard it.
 
-14. RANK THE FINALISTS.
+============================================================
+RANKING
+============================================================
 
-Rank internally by:
+Rank survivors internally by:
 
 1. observation
 2. originality
@@ -708,16 +1423,15 @@ Rank internally by:
 6. specificity
 7. visual memorability
 8. factual discipline
-9. distinctiveness
+9. brand distinctiveness
 
 Return exactly THREE.
-
 
 ============================================================
 FINAL OUTPUT
 ============================================================
 
-Output ONLY this:
+Output ONLY:
 
 IDEA 1:
 FORMAT:
@@ -737,33 +1451,30 @@ OBSERVATION:
 EXECUTION:
 PUNCHLINE:
 
-FINAL RULES:
+Rules:
 
 - Exactly 3 ideas.
 - No introduction.
 - No conclusion.
 - No SOURCES.
 - No citations.
-- No alternative execution.
-- No second version.
-- No explanations.
 - No research summary.
 - No established-facts section.
-- No "what to explore".
+- No "what to explore."
 - No strategy language.
 - No audience language.
 - No filler.
+- No finished social post.
+- No alternative versions.
 
 OBSERVATION:
-Concise.
+One concise sentence.
 
 EXECUTION:
-Practical and concise.
+Describe the actual comic/text-comic execution concisely.
 
 PUNCHLINE:
 Short, sharp and memorable.
-
-Do not write the finished social post.
 
 Think deeply internally.
 
@@ -786,95 +1497,117 @@ def build_post_idea_prompt(
     return f"""
 You are a senior crypto editor and story finder.
 
-Find the strongest stories hiding inside the subject below.
+Your job is to discover the strongest things worth
+saying about the subject below.
 
-Do NOT write a research report.
+You are NOT writing a research report.
 
-Do NOT give a long introduction.
+You are NOT summarizing the sources.
 
-Do NOT explain your thinking.
+You are finding stories.
 
-Think deeply internally and output only the strongest ideas.
-
-
-SUBJECT:
+============================================================
+SUBJECT
+============================================================
 
 {subject}
 
-
-RESEARCH:
+============================================================
+RESEARCH
+============================================================
 
 {research_text}
 
+============================================================
+PRIVATE EDITORIAL ROOM
+============================================================
+
+Do NOT output this process.
+
+Think deeply.
+
+Generate many different possible stories internally.
+
+Then become a ruthless editor.
 
 ============================================================
-PRIVATE CREATIVE PROCESS
+1. ESTABLISH THE FACTS
 ============================================================
 
-Do not output this process.
-
-1. ESTABLISH THE FACTS.
-
-Identify what is actually confirmed.
-
-Understand:
+Determine:
 
 - what happened
 - what changed
-- what mechanism matters
-- what behavior matters
+- how the mechanism works
 - who is affected
+- what behavior changed
+- what evidence exists
+- what remains uncertain
 
 Do not invent certainty.
 
-
-2. FIND WHAT IS ACTUALLY INTERESTING.
+============================================================
+2. FIND WHAT IS ACTUALLY INTERESTING
+============================================================
 
 Look underneath the headline.
 
-Find:
+Search for:
 
-- a specific tension
-- an incentive
-- a mechanism
-- an unexpected consequence
-- an overlooked detail
-- a contradiction
-- a change in behavior
-- an unintuitive result
-- a trade-off
-- a hidden dependency
+- specific tension
+- incentive
+- mechanism
+- unexpected consequence
+- overlooked detail
+- contradiction
+- behavioral change
+- unintuitive result
+- trade-off
+- hidden dependency
+- useful number
+- practical implication
+- misconception
+- unusual business model
 
+============================================================
+3. FIND THE REAL QUESTION
+============================================================
 
-3. FIND THE QUESTION.
+Ask:
 
-Ask internally:
+"What would a smart reader genuinely want to understand?"
 
-"What would a smart reader actually want to know?"
-
-The question must come from the specific story.
+The question must come from THIS story.
 
 Do not manufacture a generic industry question.
 
+============================================================
+4. MOVE PAST THE HEADLINE
+============================================================
 
-4. MOVE PAST THE HEADLINE.
+A headline is an event.
 
-The headline is not the story.
+An event is not automatically a story.
 
-"Arc launches."
+For example:
+
+"Protocol launches."
 
 "Stablecoin adoption rises."
 
 "Institution enters crypto."
 
+"AI agent gets funding."
+
 These are events.
 
-Find what is underneath the event.
+Find what is underneath them.
 
+============================================================
+5. EXPLORE MANY STORY TYPES
+============================================================
 
-5. GENERATE MANY DIFFERENT STORIES INTERNALLY.
-
-Explore:
+Generate possibilities internally across:
 
 - mechanism
 - consequence
@@ -890,104 +1623,129 @@ Explore:
 - case study
 - business model
 - unusual question
+- data story
+- infrastructure story
+- failure mode
+- hidden dependency
 
 Do not force categories.
 
-
-6. REJECT GENERIC IDEAS.
+============================================================
+6. KILL GENERIC IDEAS
+============================================================
 
 Reject:
 
-- "Why this matters"
-- "The future of..."
-- "Why institutions are adopting..."
-- "Crypto is changing finance..."
-- "The future of AI agents..."
-- "What this means for the industry..."
+"Why this matters"
 
-unless there is a genuinely specific observation
-underneath.
+"The future of..."
 
+"Why institutions are adopting..."
 
-7. DO NOT RESTATE THE NEWS.
+"Crypto is changing finance..."
 
-The idea must add a question, explanation,
-observation or useful perspective.
+"The future of AI agents..."
+
+"What this means for the industry..."
+
+"Everything you need to know..."
+
+unless there is a highly specific observation underneath.
+
+============================================================
+7. DO NOT RESTATE THE NEWS
+============================================================
 
 A headline rewritten as a topic is not an idea.
 
+The idea must add:
 
-8. FACT VS INTERPRETATION.
+- a question
+- an explanation
+- an observation
+- a useful model
+- a surprising consequence
+- a specific comparison
+- a practical lesson
 
-Only make claims supported by the research.
+============================================================
+8. FACT VS INTERPRETATION
+============================================================
 
-Do not turn:
+Use only claims supported by the research.
 
-"may" into "does"
+Never turn:
 
-"could" into "will"
+"may" → "does"
 
-"some" into "everyone"
+"could" → "will"
 
-"described as" into "is"
+"some" → "everyone"
 
-Do not invent:
+"described as" → "is"
+
+Never invent:
 
 - motives
 - intentions
-- consequences
 - capabilities
+- consequences
 - certainty
+- quotes
+- numbers
 
+============================================================
+9. MAKE THE THREE IDEAS ACTUALLY DIFFERENT
+============================================================
 
-9. MAKE THE THREE IDEAS DIFFERENT.
-
-Each idea must have a different central observation.
+Each final idea must have a different central observation.
 
 Do not return three versions of the same thesis.
 
-Changing the wording does not make an idea different.
+Changing wording is not enough.
 
-
-10. MAKE THE HOOK PUNCHY.
-
-The hook should immediately tell the reader why
-this particular story is interesting.
-
-Avoid long setup.
-
-Avoid:
-
-"The most interesting aspect of..."
-
-"What you need to know about..."
-
-"Here is why this matters..."
-
-"Let's talk about..."
+============================================================
+10. MAKE THE HOOK PUNCHY
+============================================================
 
 Start with the actual observation.
 
+Avoid:
 
-11. MAKE THE ANGLE DIRECT.
+"Today..."
 
-The angle should explain exactly what the creator
-would investigate or explain.
+"Here is why..."
+
+"Let's talk about..."
+
+"What you need to know..."
+
+"The most interesting thing..."
+
+Start where the story becomes interesting.
+
+============================================================
+11. MAKE THE ANGLE USEFUL
+============================================================
+
+The angle should tell the creator exactly what the post
+would investigate, explain or reveal.
 
 One concise sentence.
 
 No mini essay.
 
-
-12. ATTACK EVERY IDEA.
+============================================================
+12. ATTACK EVERY IDEA
+============================================================
 
 Ask internally:
 
 Is this specific?
 
-Is it factual?
-
 Is there a real observation?
+
+Is it factual?
 
 Is there something to learn?
 
@@ -995,26 +1753,30 @@ Is there tension?
 
 Would the reader already know this?
 
+Does it go beyond the headline?
+
 Could this become a strong opening?
 
 Could this become a strong post?
 
 If not, discard it.
 
+============================================================
+13. SIMPLIFY
+============================================================
 
-13. SIMPLIFY.
-
-If the idea needs a paragraph to explain,
-it is probably not strong enough.
+If an idea needs a paragraph to explain why it is
+interesting, it probably is not sharp enough.
 
 Think deeply.
 
 Output simply.
 
+============================================================
+14. FINAL RANKING
+============================================================
 
-14. FINAL SELECTION.
-
-Rank internally by:
+Rank survivors internally by:
 
 1. strength
 2. specificity
@@ -1024,8 +1786,7 @@ Rank internally by:
 6. factual discipline
 7. distinctiveness
 
-Return exactly THREE strong ideas.
-
+Return exactly THREE.
 
 ============================================================
 FINAL OUTPUT
@@ -1045,7 +1806,7 @@ IDEA 3:
 HOOK:
 ANGLE:
 
-FINAL RULES:
+Rules:
 
 - Exactly 3 ideas.
 - No introduction.
@@ -1053,8 +1814,8 @@ FINAL RULES:
 - No established facts.
 - No strange-part section.
 - No question section.
-- No WHAT TO EXPLORE.
-- No KEY FACTS.
+- No "what to explore."
+- No key facts section.
 - No SOURCES.
 - No citations.
 - No research summary.
@@ -1062,14 +1823,13 @@ FINAL RULES:
 - No strategy language.
 - No audience language.
 - No filler.
+- Do not write the finished post.
 
 HOOK:
 One or two punchy sentences maximum.
 
 ANGLE:
 One concise sentence.
-
-Do not write the finished post.
 
 Think deeply internally.
 
@@ -1122,8 +1882,8 @@ def generate_creative_ideas(
 
     response = call_writer(
         prompt,
-        temperature=1.0,
-        max_tokens=900,
+        temperature=0.95,
+        max_tokens=450,
     )
 
     if not response:
@@ -1152,11 +1912,13 @@ def generate_ideas(
     writer_profile = load_writer_profile()
 
     research_text = build_research_text(
-        research
+        research,
+        max_results=10,
+        max_content_chars=700,
     )
 
     prompt = f"""
-You are a senior crypto creator.
+You are a senior crypto creator and editor.
 
 Generate exactly 3 useful content ideas about:
 
@@ -1170,18 +1932,33 @@ RESEARCH:
 
 {research_text}
 
-Rules:
+Think broadly internally.
 
-- Stay tightly relevant to the subject.
-- Do not invent facts.
-- Do not produce generic topics.
-- Do not repeat the same angle.
-- Think like a creator, not an SEO strategist.
-- Each idea must have a distinct premise.
-- The ideas must be things the creator could actually
-  turn into a post, comic, visual, breakdown or guide.
+Find the strongest specific stories inside the research.
 
-Return:
+Reject:
+
+- generic topics
+- generic crypto commentary
+- headline rewrites
+- repeated angles
+- unsupported claims
+- SEO-style topics
+
+Each idea must have a distinct premise.
+
+Each idea should be something the creator could turn into:
+
+- a post
+- a comic
+- a technical breakdown
+- an explanation
+- a guide
+- an observation
+
+Do not invent facts.
+
+Return exactly:
 
 IDEA 1:
 TITLE:
@@ -1217,5 +1994,5 @@ SOURCES:
     return call_writer(
         prompt,
         temperature=0.9,
-        max_tokens=1200,
+        max_tokens=450,
     )
