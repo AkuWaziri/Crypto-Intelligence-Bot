@@ -464,7 +464,6 @@ def build_idea_research_text(research):
         if not content:
             continue
 
-        # Keep individual source material compact.
         content = content[:900]
 
         sections.append(
@@ -477,6 +476,10 @@ def build_idea_research_text(research):
     return "\n\n".join(sections)
 
 
+# ============================================================
+# MEME IDEA GENERATION
+# ============================================================
+
 def build_meme_idea_prompt(
     situation,
     research,
@@ -487,20 +490,22 @@ def build_meme_idea_prompt(
     )
 
     return f"""
-You are the senior creative director and comic/meme maker
-for a crypto creator brand.
+You are the senior creative director for a distinctive crypto
+creator brand.
 
-Your job is NOT to suggest "content".
-
-Your job is to discover the funniest, sharpest, strangest
-or most visually interesting IDEA hidden inside a real
+Your job is to find the BEST CREATIVE IDEA hidden inside a real
 crypto situation.
 
-The creator's brand explains crypto through simple,
-human, memorable storytelling.
+You are not a content strategist.
+You are not an SEO writer.
+You are not a headline generator.
 
-The result should feel like something a creator would
-actually make and publish.
+The creator makes simple, memorable crypto stories using humor,
+irony, visual thinking, human behavior and sharp observations.
+
+The final idea should feel like something a talented human
+creator thought of after noticing something strange about the
+situation.
 
 CREATOR PROFILE:
 
@@ -516,240 +521,289 @@ RESEARCH:
 
 
 ============================================================
-STEP 1 — UNDERSTAND THE STORY
+1. ESTABLISH THE FACTS
 ============================================================
 
-Before thinking about memes:
+Privately determine:
 
-1. Understand what actually happened.
-2. Identify confirmed facts.
-3. Separate facts from interpretation.
-4. Find the human behavior involved.
-5. Find what is strange, ironic, absurd, surprising,
-   ridiculous, tense or visually interesting.
+- What is actually confirmed?
+- What is interpretation?
+- What is genuinely unusual?
+- What behavior, contradiction, irony or tension exists?
 
-Do NOT automatically treat the user's description as fact.
+The user's description is NOT automatically factual.
 
-Do NOT invent missing details.
+Research is the factual boundary.
 
-Do NOT exaggerate a factual claim simply because it makes
-a better joke.
+Never invent:
+- rules
+- restrictions
+- quotes
+- dialogue
+- numbers
+- motives
+- outcomes
+- capabilities
+- consequences
+
+If something is unknown, do not present it as fact.
 
 
 ============================================================
-STEP 2 — HUNT FOR THE JOKE
+2. FIND THE OBSERVATION
 ============================================================
 
-Privately explore a LARGE number of possible creative
-directions.
+Do NOT immediately turn the main fact into a meme.
 
-Think far beyond the obvious.
+Look one layer deeper.
 
-Consider:
+Ask privately:
 
-- absurd situations
-- visual contradictions
-- irony
+"What is funny, strange, ironic, absurd or revealing about
+this situation?"
+
+Look for:
+
+- an unexpected contrast
 - human behavior
+- irony
+- contradiction
 - social dynamics
-- crypto culture
-- exaggerated reactions
-- unexpected comparisons
-- fake advertisements
-- fake warnings
-- receipts
-- checklists
-- screenshots
-- charts used as jokes
-- diagrams used as jokes
+- a strange consequence
+- an awkward situation
+- something that feels backwards
+- something that resembles an ordinary real-world situation
+- an exaggerated but understandable metaphor
+- a visual contradiction
+- a tiny detail that reveals the larger story
+
+The strongest idea may be about the BEHAVIOR around the event,
+not the event itself.
+
+
+============================================================
+3. GENERATE A LARGE PRIVATE POSSIBILITY POOL
+============================================================
+
+Privately explore many different creative directions.
+
+Do not show this process.
+
+Try radically different possibilities:
+
+- deadpan observation
+- absurd comparison
+- visual metaphor
+- text comic
+- single-panel sketch
+- multi-panel comic
+- fake warning
+- receipt
+- instruction manual
+- screenshot
+- handwritten note
+- chart gag
+- diagram gag
 - before/after
-- courtroom scenes
-- emergency broadcasts
 - product packaging
-- instruction manuals
-- text comics
-- single-panel comics
-- multi-panel comics
-- handwritten drawings
-- character reactions
-- simple illustrations
-- visual metaphors
-- deadpan humor
-- understatement
-- absurd escalation
-- "this makes no sense" moments
-- situations where the visual itself tells the joke
+- courtroom
+- emergency broadcast
+- ordinary everyday situation
+- character interaction
+- completely character-free visual joke
 
-You may use recurring characters.
+Characters are OPTIONAL.
 
-But characters are OPTIONAL.
-
-Never insert a character simply because the brand has
-characters.
-
-Use one only when the character makes the joke better.
+Do not use a character merely because characters exist
+in the brand.
 
 
 ============================================================
-STEP 3 — FIND THE SIMPLEST STRONG VERSION
+4. THE SECOND-ORDER RULE
 ============================================================
 
-This is extremely important.
+This is critical.
 
-After generating many possibilities, simplify them.
+Do NOT make the obvious fact itself the punchline.
 
-The best idea is NOT necessarily the most elaborate one.
+BAD:
+
+"Arc has institutional validators."
+
+→ Draw institutions around Arc.
+
+BAD:
+
+"Validators are permissioned."
+
+→ Draw a security guard saying access denied.
+
+BAD:
+
+"Arc is an open L1."
+
+→ Draw an open door that is actually closed.
+
+Those simply illustrate the headline.
+
+BETTER:
+
+Find the strange HUMAN or CULTURAL situation created by
+the underlying facts.
+
+The factual situation is the INPUT.
+
+The observation is the JOKE.
+
+
+============================================================
+5. SIMPLIFY
+============================================================
+
+After exploring many possibilities, simplify aggressively.
+
+The winning idea should normally contain:
+
+ONE observation.
+ONE visual premise.
+ONE joke.
+ONE punchline.
+
+A viewer should understand the basic premise almost immediately.
 
 Prefer:
 
-ONE observation.
+a clever sign
 
-ONE visual premise.
+a strange object
 
-ONE joke.
+a ridiculous comparison
 
-ONE punchline.
+a tiny visual detail
 
-The viewer should understand the basic joke almost
-immediately.
+a short exchange
 
-Avoid ideas that require a paragraph to explain.
+a simple drawing
 
-Avoid visual concepts containing five unrelated elements.
+over:
 
-Avoid turning a meme into an infographic.
+large scenes
 
-Avoid turning a joke into a presentation.
+many characters
 
-A simple drawing with a great observation is better than
-a complicated drawing with an average observation.
+many labels
 
+many logos
 
-============================================================
-STEP 4 — KILL GENERIC IDEAS
-============================================================
+infographics
 
-Reject anything that sounds like:
+complicated diagrams
 
-"Make a funny meme about..."
-
-"Make a comic explaining..."
-
-"Show traders reacting..."
-
-"Show the market going crazy..."
-
-"Make an infographic about..."
-
-"Use a chart to explain..."
-
-Those are formats, not ideas.
-
-Also reject:
-
-- generic crypto humor
-- generic degen humor
-- generic reaction memes
-- generic "wen moon" jokes
-- generic greed jokes
-- generic FOMO jokes
-- generic institutional jokes
-- jokes that could fit any crypto story
-- complicated concepts with weak punchlines
-- jokes that require unsupported facts
-- ideas that are basically rewritten headlines
+long explanations
 
 
 ============================================================
-STEP 5 — CHOOSE THE FORMAT
+6. ORIGINALITY FILTER
 ============================================================
 
-There is NO default format.
+Reject any idea that could be used for almost any crypto story.
 
-The idea chooses the format.
+Reject:
 
-Possible formats include:
+- generic FOMO
+- generic greed
+- generic "wen moon"
+- generic trader crying
+- generic market going crazy
+- generic rocket
+- generic rug pull
+- generic "institutional money"
+- generic reaction meme
+- generic security guard
+- generic locked door
+- generic "permission denied"
 
-text comic
-single-panel illustration
-multi-panel comic
-fake advertisement
-fake warning
-receipt
-checklist
-screenshot meme
-handwritten sketch
-chart gag
-diagram gag
-before/after
-product packaging
-courtroom
-emergency broadcast
-instruction manual
-reaction scene
-visual metaphor
-character scene
-or something completely different.
+UNLESS the specific situation creates a genuinely new
+version of that joke.
 
-Do not force different formats merely for variety.
-
-Choose the format that makes THAT particular joke
-strongest.
+The idea must depend on THIS situation.
 
 
 ============================================================
-STEP 6 — FINAL SELECTION
+7. DUPLICATION FILTER
 ============================================================
 
-From the large private pool, select only the 2 or 3 ideas
-that are genuinely strongest.
+The 2–3 final ideas MUST NOT be the same joke expressed
+through different formats.
 
-Rank them by:
+For example:
 
-1. Strength of observation
-2. Immediate understanding
-3. Originality
+security guard + institutions
+
+permission denied + institutions
+
+locked room + institutions
+
+are ONE IDEA.
+
+Choose only one.
+
+The other ideas must come from different observations.
+
+
+============================================================
+8. FACTUAL DISCIPLINE
+============================================================
+
+The creative idea may exaggerate the VISUAL METAPHOR.
+
+It may NOT exaggerate the FACT.
+
+Example:
+
+Acceptable:
+A ridiculous boardroom metaphor for a permissioned validator
+structure.
+
+Not acceptable:
+Claiming ordinary users are prohibited from using the network
+if the research does not establish that.
+
+Keep factual statements precise.
+
+The joke can be absurd.
+
+The facts cannot.
+
+
+============================================================
+9. SELECT
+============================================================
+
+From the private possibility pool, keep only the strongest
+2 or 3.
+
+Rank internally by:
+
+1. Originality
+2. Strength of observation
+3. Immediate understanding
 4. Simplicity
-5. Visual memorability
-6. Punchline strength
-7. Relevance to the actual event
+5. Punchline
+6. Visual memorability
+7. Dependence on the actual situation
 8. Ease of execution
 
+If only two are genuinely strong, return two.
 
-============================================================
-IMPORTANT CREATIVE RULE
-============================================================
-
-DO NOT explain why the idea is good.
-
-DO NOT explain what "content opportunity" it represents.
-
-DO NOT explain how it "positions the creator".
-
-DO NOT say what "the audience will love".
-
-DO NOT use strategy-deck language.
-
-DO NOT write:
-
-"this could appeal to..."
-
-"this positions..."
-
-"this is valuable because..."
-
-"this would perform well..."
-
-The idea itself must demonstrate why it is good.
+Never add a weak third idea just to reach three.
 
 
 ============================================================
 OUTPUT
 ============================================================
 
-Return exactly 2 or 3 ideas.
-
-Adapt the structure to the idea.
+Return ONLY the final ideas.
 
 Use:
 
@@ -774,20 +828,32 @@ EXECUTION:
 PUNCHLINE:
 SOURCES:
 
-If an idea needs a different execution structure,
-adapt the EXECUTION section naturally.
+Do not explain the creative process.
 
-Do not force every idea into identical wording.
+Do not explain why the idea is good.
 
-Do not write the finished meme.
+Do not use phrases such as:
 
-Do not write a finished social-media post.
+"this positions the creator"
+"this appeals to the audience"
+"this would perform well"
+"content opportunity"
+"engagement"
+"brand positioning"
 
-Give the creator the creative blueprint they can make.
+Do not write the finished social-media post.
+
+Do not write a strategy document.
+
+Give the creator the actual idea they can make.
 
 Every factual element must be supported by the research.
 """.strip()
 
+
+# ============================================================
+# POST IDEA GENERATION
+# ============================================================
 
 def build_post_idea_prompt(
     subject,
@@ -799,19 +865,16 @@ def build_post_idea_prompt(
     )
 
     return f"""
-You are the senior creative director for a crypto creator.
+You are the senior creative director for a distinctive crypto
+creator.
 
-Your job is to discover the strongest STORIES,
-OBSERVATIONS and QUESTIONS hidden inside a subject.
+Your job is to discover the strongest STORY or OBSERVATION
+inside a subject.
 
-You are NOT a content strategist.
+You are not generating generic "content ideas".
 
-You are NOT an SEO writer.
-
-You are NOT producing a list of generic post topics.
-
-You are looking for things a sharp crypto creator would
-actually want to sit down and write.
+You are finding something specific that is actually worth
+writing about.
 
 CREATOR PROFILE:
 
@@ -827,223 +890,194 @@ RESEARCH:
 
 
 ============================================================
-STEP 1 — UNDERSTAND THE FACTS
+1. FACTS FIRST
 ============================================================
 
-First understand the subject.
+Privately establish:
 
-Identify privately:
-
-- what actually happened
-- what is confirmed
+- what happened
 - what changed
-- what is unusual
+- what is confirmed
+- what is uncertain
 - what people may misunderstand
-- what users may do
-- what investors may do
-- what builders may do
-- what incentives are involved
-- what tension exists
-- what contradiction exists
-- what practical decision may matter
-- what assumption may be wrong
-- what question the story naturally creates
+- what behavior or incentive is involved
+- what is unusual
 
 Separate facts from interpretation.
 
-Do not manufacture certainty.
-
-Do not turn speculation into fact.
+Never manufacture certainty.
 
 
 ============================================================
-STEP 2 — FIND THE STORY
+2. FIND THE REAL STORY
 ============================================================
 
-Now privately generate a LARGE pool of possible stories.
+Do not simply summarize the subject.
 
-Explore radically different directions.
+Look underneath it.
 
-For example:
+Ask:
 
-- breaking news
-- technical breakdown
-- simple explanation
-- contrarian observation
-- opinion
-- guide
-- practical preparation
-- investor perspective
-- degen perspective
-- builder perspective
-- user behavior
-- protocol mechanics
-- incentive analysis
-- business model
-- institutional behavior
-- onchain behavior
-- timeline
-- case study
-- comparison
-- myth vs reality
-- "what nobody is noticing"
-- "the part people are getting wrong"
-- unusual question
-- consequence nobody is discussing
-- hidden trade-off
-- simple mental model
-- experiment
-- cultural observation
-- narrative story
-
-But do not assume every subject needs one of these.
-
-The subject decides.
-
-
-============================================================
-STEP 3 — FIND THE TENSION
-============================================================
-
-Strong ideas usually contain something to pull against.
+"What is the interesting thing here that most people could
+easily miss?"
 
 Look for:
 
-expectation vs reality
-
-what people think vs what is happening
-
-technical design vs user behavior
-
-incentive vs stated goal
-
-new system vs old behavior
-
-hype vs mechanics
-
-convenience vs trade-off
-
-opportunity vs risk
-
-speed vs understanding
-
-permissionless access vs actual participation
-
-etc.
-
-Do not manufacture tension if the research does not
-support it.
-
-
-============================================================
-STEP 4 — KILL GENERIC IDEAS
-============================================================
-
-Reject ideas such as:
-
-"Why this matters"
-
-"Everything you need to know"
-
-"The future of..."
-
-"5 things to know"
-
-"Complete guide to..."
-
-"Here's what happened..."
-
-"Why investors should care"
-
-"Why this is bullish"
-
-"Why this is bearish"
-
-unless the actual premise underneath is genuinely
-specific and interesting.
-
-Also reject ideas that:
-
-- simply summarize the research
-- repeat the headline
-- could apply to any crypto project
-- are too broad
-- have no clear question
-- have no real observation
-- depend on unsupported speculation
-- manufacture controversy
-- sound like corporate LinkedIn content
-
-
-============================================================
-STEP 5 — MAKE IT SPECIFIC
-============================================================
-
-Every surviving idea should answer:
-
-"What exactly would I write?"
-
-Not:
-
-"Write about Arc."
-
-But something closer to:
-
-"Before Arc launches, separate what someone can actually
-prepare for from the things people are assuming will exist
-on day one."
-
-The premise should be specific enough that the creator can
-immediately start writing from it.
-
-
-============================================================
-STEP 6 — SELECT THE BEST
-============================================================
-
-From the large private pool, select only 2 or 3.
-
-Choose the ideas with the strongest combination of:
-
-- interesting observation
-- clear premise
 - tension
-- usefulness
-- originality
-- specificity
-- factual grounding
-- creator personality
-- room for a strong opening
-- room for a memorable conclusion
+- contradiction
+- unexpected behavior
+- incentives
+- trade-offs
+- technical mechanics
+- human behavior
+- practical consequences
+- an assumption that deserves testing
+- something people are interpreting incorrectly
+- a question created by the facts
+- a useful mental model
+- a surprising connection
 
 
 ============================================================
-IMPORTANT
+3. EXPLORE DIFFERENT DIRECTIONS
 ============================================================
 
-Do NOT explain why an idea is good using content-strategy
-language.
+Privately generate a large possibility pool.
 
-Do NOT write:
+Explore different kinds of stories:
 
-"this positions the creator..."
+- technical breakdown
+- simple explanation
+- contrarian observation
+- practical guide
+- opinion
+- case study
+- timeline
+- mechanism
+- user behavior
+- builder perspective
+- investor perspective
+- incentive analysis
+- business model
+- myth vs reality
+- overlooked detail
+- "the part people are missing"
+- "what happens next"
+- practical preparation
+- unusual question
 
-"this appeals to..."
+Do not force the subject into a category.
 
-"this is valuable content..."
+The subject determines the story.
 
-"this would perform well..."
 
-"the audience will..."
+============================================================
+4. SPECIFICITY FILTER
+============================================================
 
-Instead, tell the creator what the actual story is.
+Reject broad ideas.
+
+BAD:
+
+"Why Arc matters."
+
+"Everything you need to know about Arc."
+
+"The future of stablecoins."
+
+"Why institutional adoption matters."
+
+GOOD:
+
+A specific question, mechanism, contradiction or observation
+that gives the creator something concrete to investigate.
+
+
+============================================================
+5. NO GENERIC CONTENT LANGUAGE
+============================================================
+
+Do not describe an idea using:
+
+"content opportunity"
+
+"audience"
+
+"engagement"
+
+"positioning"
+
+"brand"
+
+"this will perform well"
+
+"this appeals to"
+
+Instead describe the actual story.
+
+The idea should explain what the creator would actually
+investigate, explain, question or argue.
+
+
+============================================================
+6. FACTUAL DISCIPLINE
+============================================================
+
+Do not turn assumptions into facts.
+
+Do not manufacture controversy.
+
+Do not invent motives.
+
+Do not invent outcomes.
+
+Do not make bullish or bearish conclusions unless the
+research supports them.
+
+Interpretation is allowed.
+
+Certainty without evidence is not.
+
+
+============================================================
+7. DUPLICATION FILTER
+============================================================
+
+The final ideas must be genuinely different.
+
+Do not return three versions of:
+
+"Why this matters."
+
+Each idea must have a different central observation or
+question.
+
+
+============================================================
+8. SELECT
+============================================================
+
+Keep only the strongest 2 or 3.
+
+Rank internally by:
+
+1. Strength of observation
+2. Specificity
+3. Interesting tension
+4. Originality
+5. Factual grounding
+6. Usefulness
+7. Room for a strong opening
+8. Room for a memorable conclusion
+
+If only two are genuinely strong, return two.
 
 
 ============================================================
 OUTPUT
 ============================================================
 
-Return exactly 2 or 3 ideas.
+Return ONLY the final ideas.
 
 Use:
 
@@ -1071,17 +1105,19 @@ WHAT TO EXPLORE:
 KEY FACTS:
 SOURCES:
 
-If only two are genuinely strong, return two.
-
 Do not write the finished post.
 
-Do not write a draft.
+Do not explain the creative process.
 
 Give the creator the actual story direction.
 
 All factual claims must be grounded in the research.
 """.strip()
 
+
+# ============================================================
+# CREATIVE IDEA GENERATION
+# ============================================================
 
 def generate_creative_ideas(
     mode,
