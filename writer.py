@@ -1125,7 +1125,7 @@ def generate_creative_ideas(
     response = call_writer(
         prompt,
         temperature=1.0,
-        max_tokens=1800,
+        max_tokens=900,
     )
 
     if not response:
