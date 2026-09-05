@@ -20,6 +20,7 @@ from writer import (
     generate_intelligence,
     generate_content,
     generate_ideas,
+    generate_creative_ideas,
 )
 
 
@@ -50,10 +51,16 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
-/ideas &lt;topic&gt; — discover researched content ideas
+/idea — discover creative content ideas
+/ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
+
+<b>Creative Ideas</b>
+
+/idea give meme &lt;situation&gt;
+/idea give me post ideas &lt;subject&gt;
 
 <b>Examples</b>
 
@@ -63,19 +70,13 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 
 /research suspicious smart contracts
 
-/ideas on Base
+/idea give meme Elon replied to an unknown account and its token exploded
 
-/ideas on Arc
+/idea give me post ideas Arc mainnet is on September 16 and what investors or degens should do before launch
 
-/ideas on Uniswap
+/idea give me post ideas stablecoins
 
-/ideas on the Plum hack
-
-/ideas on stablecoins
-
-/ideas on Arc agentic economy
-
-/ideas on "we are so back"
+/idea give me post ideas AI agents
 
 /create Crypto GM post
 
@@ -251,6 +252,177 @@ async def research_command(
             )
 
 
+# ============================================================
+# NEW CREATIVE IDEA COMMAND
+# ============================================================
+
+async def idea_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    if not update.message:
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Usage:\n\n"
+            "/idea give meme <situation>\n"
+            "/idea give me post ideas <subject>\n\n"
+            "Examples:\n"
+            "/idea give meme Elon replied to an unknown account and its token exploded\n\n"
+            "/idea give me post ideas Arc mainnet is on September 16 and what investors should do before launch"
+        )
+        return
+
+    raw_request = " ".join(
+        context.args
+    ).strip()
+
+    lower_request = raw_request.lower()
+
+    mode = None
+    request_text = ""
+
+    # --------------------------------------------------------
+    # MEME MODE
+    # --------------------------------------------------------
+
+    if lower_request.startswith(
+        "give meme"
+    ):
+        mode = "meme"
+
+        request_text = raw_request[
+            len("give meme"):
+        ].strip()
+
+    # --------------------------------------------------------
+    # POST MODE
+    # --------------------------------------------------------
+
+    elif lower_request.startswith(
+        "give me post ideas"
+    ):
+        mode = "post"
+
+        request_text = raw_request[
+            len("give me post ideas"):
+        ].strip()
+
+    elif lower_request.startswith(
+        "give post ideas"
+    ):
+        mode = "post"
+
+        request_text = raw_request[
+            len("give post ideas"):
+        ].strip()
+
+    elif lower_request.startswith(
+        "post ideas"
+    ):
+        mode = "post"
+
+        request_text = raw_request[
+            len("post ideas"):
+        ].strip()
+
+    # --------------------------------------------------------
+    # INVALID MODE
+    # --------------------------------------------------------
+
+    if not mode:
+        await update.message.reply_text(
+            "I need to know what kind of idea you want.\n\n"
+            "Use:\n"
+            "/idea give meme <situation>\n"
+            "/idea give me post ideas <subject>"
+        )
+        return
+
+    if not request_text:
+        await update.message.reply_text(
+            "Give me the situation or subject after the command.\n\n"
+            "Example:\n"
+            "/idea give meme Elon replied to an unknown account and its token exploded"
+        )
+        return
+
+    if mode == "meme":
+        status_text = (
+            "🎨 Researching the situation "
+            "and exploring meme possibilities..."
+        )
+    else:
+        status_text = (
+            "💡 Researching the subject "
+            "and exploring creative directions..."
+        )
+
+    status = await update.message.reply_text(
+        status_text
+    )
+
+    try:
+        # ----------------------------------------------------
+        # BROADER RESEARCH FOR /idea
+        # ----------------------------------------------------
+
+        research = await asyncio.to_thread(
+            search_web,
+            request_text,
+            8,
+        )
+
+        if not research.get("results"):
+            await status.edit_text(
+                "❌ I couldn't find enough useful "
+                "research for this idea."
+            )
+            return
+
+        # ----------------------------------------------------
+        # CREATIVE ENGINE
+        # ----------------------------------------------------
+
+        ideas = await asyncio.to_thread(
+            generate_creative_ideas,
+            mode,
+            request_text,
+            research,
+        )
+
+        if not ideas:
+            raise RuntimeError(
+                "No creative ideas were generated."
+            )
+
+        await status.delete()
+
+        await send_message(
+            update,
+            ideas,
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Creative idea generation failed."
+        )
+
+        try:
+            await status.edit_text(
+                f"❌ Idea generation failed.\n\n{exc}"
+            )
+        except Exception:
+            await update.message.reply_text(
+                f"❌ Idea generation failed.\n\n{exc}"
+            )
+
+
+# ============================================================
+# LEGACY IDEAS COMMAND
+# ============================================================
+
 async def ideas_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -327,6 +499,10 @@ async def ideas_command(
             )
 
 
+# ============================================================
+# CREATE
+# ============================================================
+
 async def create_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -401,6 +577,10 @@ async def create_command(
             )
 
 
+# ============================================================
+# FEED
+# ============================================================
+
 async def feed_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -447,6 +627,10 @@ async def feed_command(
             )
 
 
+# ============================================================
+# TELEGRAM MESSAGE SENDER
+# ============================================================
+
 async def send_message(
     update: Update,
     text: str,
@@ -468,6 +652,10 @@ async def send_message(
             text[start:start + max_length]
         )
 
+
+# ============================================================
+# HANDLERS
+# ============================================================
 
 def setup_handlers():
     telegram_app.add_handler(
@@ -498,6 +686,15 @@ def setup_handlers():
         )
     )
 
+    # New creative idea engine.
+    telegram_app.add_handler(
+        CommandHandler(
+            "idea",
+            idea_command,
+        )
+    )
+
+    # Existing legacy idea engine.
     telegram_app.add_handler(
         CommandHandler(
             "ideas",
@@ -530,6 +727,10 @@ def setup_handlers():
 setup_handlers()
 
 
+# ============================================================
+# FLASK HEALTH CHECK
+# ============================================================
+
 @app.get("/")
 def health():
     return jsonify(
@@ -539,6 +740,10 @@ def health():
         }
     )
 
+
+# ============================================================
+# TELEGRAM WEBHOOK
+# ============================================================
 
 @app.post("/telegram")
 def telegram_webhook():
@@ -579,6 +784,10 @@ def telegram_webhook():
         ), 500
 
 
+# ============================================================
+# STARTUP
+# ============================================================
+
 async def startup():
     await telegram_app.initialize()
 
@@ -588,26 +797,33 @@ async def startup():
         "RENDER_EXTERNAL_URL"
     )
 
-    if not render_url:
-        raise RuntimeError(
-            "RENDER_EXTERNAL_URL is not set."
+    if render_url:
+        webhook_url = (
+            f"{render_url.rstrip('/')}"
+            "/telegram"
         )
 
-    webhook_url = (
-        f"{render_url.rstrip('/')}"
-        "/telegram"
-    )
+        await telegram_app.bot.set_webhook(
+            url=webhook_url,
+            allowed_updates=Update.ALL_TYPES,
+        )
 
-    await telegram_app.bot.set_webhook(
-        url=webhook_url,
-        allowed_updates=Update.ALL_TYPES,
-    )
+        logger.info(
+            "Telegram webhook registered: %s",
+            webhook_url,
+        )
 
-    logger.info(
-        "Telegram webhook registered: %s",
-        webhook_url,
-    )
+    else:
+        logger.info(
+            "RENDER_EXTERNAL_URL not set. "
+            "Running without webhook registration "
+            "for local testing."
+        )
 
+
+# ============================================================
+# SHUTDOWN
+# ============================================================
 
 async def shutdown():
     try:
@@ -631,6 +847,10 @@ async def shutdown():
             "Failed to shutdown Telegram application."
         )
 
+
+# ============================================================
+# MAIN
+# ============================================================
 
 async def main():
     await startup()
