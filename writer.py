@@ -13,7 +13,6 @@ from config import (
     MAX_FEED_DRAFT_CHARACTERS,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -477,7 +476,7 @@ def build_idea_research_text(research):
 
 
 # ============================================================
-# FINAL MEME / COMIC IDEA ENGINE
+# MEME / COMIC IDEA ENGINE
 # ============================================================
 
 def build_meme_idea_prompt(
@@ -490,28 +489,29 @@ def build_meme_idea_prompt(
 
     return f"""
 You are a senior comic writer and creative director
-working for a distinctive crypto creator.
+for a distinctive crypto creator.
 
-Your job is NOT to make a crypto fact look funny.
+Your job is to find genuinely interesting, funny,
+strange, ironic or revealing observations inside the
+specific situation below.
 
-Your job is to NOTICE something funny, strange, revealing,
-absurd, ironic or unexpectedly familiar about the situation.
+Do NOT simply illustrate the crypto fact.
 
-The difference is critical.
+Think deeply internally.
 
-A weak creator sees:
+The desired creative path is:
+
+FACT → HUMAN BEHAVIOR → OBSERVATION → JOKE
+
+not:
 
 FACT → IMAGE OF FACT
 
-A strong creator sees:
-
-FACT → BEHAVIOR → OBSERVATION → JOKE
-
-You are looking for the second.
 
 USER SITUATION:
 
 {situation}
+
 
 RESEARCH:
 
@@ -522,122 +522,20 @@ RESEARCH:
 PRIVATE CREATIVE PROCESS
 ============================================================
 
-Everything in this section is INTERNAL.
+Do not output this process.
 
-Do not output the process.
+1. Understand the confirmed facts.
 
+2. Find the human behavior created by the situation.
 
-STEP 1 — KNOW THE FACTS
------------------------
+3. Find the tiny strange, funny, ironic or unexpected
+detail inside that behavior.
 
-Understand the situation before trying to make it funny.
+4. Reject the obvious joke.
 
-Identify only what the research actually establishes.
+5. Look one level deeper.
 
-Separate:
-
-- confirmed fact
-- interpretation
-- uncertainty
-
-The user's wording may be incomplete or wrong.
-
-Do not inherit an unsupported claim because it sounds
-interesting.
-
-Never invent:
-
-- motives
-- intentions
-- restrictions
-- outcomes
-- quotes
-- capabilities
-- consequences
-- institutional behavior
-
-
-STEP 2 — FIND THE HUMAN BEHAVIOR
---------------------------------
-
-Stop thinking about crypto terminology.
-
-Ask:
-
-"If I watched ordinary people dealing with this exact
-situation, what would I notice?"
-
-Look for the human behavior created by the actual mechanism.
-
-Look for:
-
-- someone misunderstanding something
-- someone discovering a condition too late
-- someone technically getting what they asked for
-- someone following a rule that creates an absurd result
-- someone expecting one thing and receiving another
-- someone realizing they have less control than expected
-- someone treating something unusual as completely normal
-- someone dealing with an unnecessarily strange process
-- someone finding the fine print
-- someone waiting
-- someone being rewarded or punished for a small behavior
-- someone making a completely ordinary decision inside an
-  extraordinary system
-- something sophisticated creating an extremely ordinary problem
-- a rule producing an unexpectedly human consequence
-
-These are prompts, not required themes.
-
-
-STEP 3 — FIND THE TINY OBSERVATION
-----------------------------------
-
-Find the smallest detail that reveals the whole situation.
-
-The strongest comic may need only:
-
-- one sentence
-- one reaction
-- one object
-- one sign
-- one exchange
-- one awkward moment
-- one contradiction
-- one unexpected consequence
-
-Do not automatically build a large scene.
-
-Small is usually stronger.
-
-
-STEP 4 — GO ONE LEVEL DEEPER
-----------------------------
-
-For every promising observation, ask:
-
-"What is the obvious joke?"
-
-Reject it.
-
-Then ask:
-
-"What is underneath that?"
-
-Then:
-
-"What would a sharp person notice that everyone else might
-miss?"
-
-Do not stop at the headline.
-
-Do not simply illustrate the mechanism.
-
-
-STEP 5 — GENERATE A LARGE PRIVATE POOL
----------------------------------------
-
-Generate many different possibilities internally.
+6. Generate many different possibilities internally.
 
 Explore:
 
@@ -649,56 +547,15 @@ Explore:
 - visual
 - character-free
 - character-based
-- extremely simple
-- slightly surreal
-- ordinary social situations
+- ordinary-life situations
 - ordinary objects
-- language
-- human behavior
 - unexpected consequences
 - contradictions
+- awkward human behavior
 
-Do not force:
+Do not force any particular category.
 
-- characters
-- analogies
-- metaphors
-- crypto terminology
-- a specific comic format
-
-Find the observation first.
-
-
-STEP 6 — KILL LITERAL IDEAS
----------------------------
-
-Reject ideas that are simply:
-
-"Crypto thing X looks like normal thing Y."
-
-Examples:
-
-validator → security guard
-permissioned → locked door
-institutions → boardroom
-fast → Ferrari
-decentralization → voting booth
-blockchain → filing cabinet
-airdrop → treasure chest
-deadline → giant calendar
-token → supermarket product
-
-These are acceptable only if the comparison reveals
-something genuinely unexpected.
-
-The resemblance itself is not the joke.
-
-
-STEP 7 — KILL GENERIC CRYPTO JOKES
-----------------------------------
-
-Reject anything that could be attached to almost any crypto
-story.
+7. KILL GENERIC CRYPTO JOKES.
 
 Reject:
 
@@ -708,74 +565,118 @@ Reject:
 - rocket
 - rug
 - trader crying
-- bank bad
-- institution bad
-- bureaucracy slow
-- decentralization joke
-- locked door
-- security guard
-- permission denied
 - generic "free money"
-- generic "crypto is complicated"
-- generic "I should have read the terms"
 - generic panic
-- generic stupidity
+- generic crypto confusion
+- generic institution jokes
+- generic bureaucracy
+- generic locked door
+- security guard
+- boardroom
+- treasure chest
+- calendar
+- supermarket
+- Ferrari
+- filing cabinet
 
-unless THIS PARTICULAR situation creates a new observation.
+unless the specific situation creates a genuinely new
+observation.
 
+8. KILL LITERAL ANALOGIES.
 
-STEP 8 — FACT VS JOKE
----------------------
+Do not turn every crypto mechanism into an ordinary object
+just because they superficially resemble each other.
 
-This is a hard rule.
+The resemblance itself is not the joke.
+
+9. FACT VS JOKE.
 
 THE JOKE CAN BE ABSURD.
 
 THE FACTUAL SETUP MUST BE TRUE.
 
-The visual can exaggerate.
+Never turn:
 
-The situation can be ridiculous.
+"may" into "does"
 
-The dialogue can be funny.
+"could" into "will"
 
-But do not turn an interpretation into a fact.
+"some" into "everyone"
 
-Never convert:
+"described as" into "is"
 
-"may"
-into
-"does"
+Never invent:
 
-Never convert:
+- motives
+- consequences
+- capabilities
+- intentions
+- quotes
+- restrictions
+- outcomes
 
-"described as"
-into
-"is"
+If the joke requires an unsupported factual claim,
+discard the joke.
 
-Never convert:
+10. MAKE THE THREE IDEAS DIFFERENT.
 
-"some participants"
-into
-"everyone"
+The three final ideas must have THREE DIFFERENT
+underlying observations.
 
-Never convert:
+Changing the:
 
-"could"
-into
-"will"
+- character
+- setting
+- object
+- visual style
+- wording
 
-Never invent a consequence simply because it makes the joke
-better.
+does NOT make an idea new.
 
-If the joke requires an unsupported factual claim, discard
-the joke.
+If two ideas make the same point, keep only the stronger one.
 
+11. SIMPLIFY.
 
-STEP 9 — ATTACK EVERY IDEA
---------------------------
+The comic should use the minimum necessary elements.
 
-For every candidate, privately ask:
+Prefer:
+
+- one panel over four
+- two lines over a paragraph
+- one object over a full environment
+- one reaction over five characters
+- one exchange over a long conversation
+
+12. MAKE THE PUNCHLINE PUNCHY.
+
+The punchline must NOT explain the joke.
+
+It must NOT summarize the research.
+
+It must NOT sound like a headline.
+
+It should feel like the final click.
+
+Ask:
+
+"Can I remove half the words?"
+
+If yes, shorten it.
+
+Prefer:
+
+- short
+- sharp
+- deadpan
+- ironic
+- conversational
+- memorable
+
+Do not force wordplay.
+
+13. ATTACK EVERY IDEA.
+
+Ask internally:
 
 Is this actually funny?
 
@@ -789,155 +690,34 @@ Could another crypto account make this exact joke?
 
 Does this depend on THIS situation?
 
-Is the human behavior clear?
-
 Can I remove half of it?
 
-Can the punchline be shorter?
+Would the idea work without crypto jargon?
 
-Would the idea still be interesting without crypto jargon?
+If not, discard it.
 
-If not, improve or discard it.
+14. RANK THE FINALISTS.
 
+Rank internally by:
 
-STEP 10 — MAKE THE THREE IDEAS DIFFERENT
-----------------------------------------
-
-The final three ideas MUST have different underlying
-observations.
-
-Changing the:
-
-- character
-- setting
-- object
-- visual style
-- wording
-
-does NOT make a new idea.
-
-If two ideas make the same point, keep only the stronger one.
-
-The three finalists should preferably come from different
-creative directions.
-
-For example:
-
-IDEA 1:
-A sharp human observation.
-
-IDEA 2:
-An unexpected contradiction.
-
-IDEA 3:
-A simple absurd or ironic situation.
-
-Do not force those exact categories.
-
-The important rule is:
-
-THREE DIFFERENT OBSERVATIONS.
-
-Do not return three costumes for the same joke.
-
-
-STEP 11 — BUILD THE SIMPLEST POSSIBLE COMIC
--------------------------------------------
-
-Only after the observation is strong should you choose the
-format.
-
-Use the minimum necessary elements.
-
-Prefer:
-
-- one panel over four
-- two lines over a paragraph
-- one object over a full environment
-- one reaction over five characters
-- one exchange over a long conversation
-- one punchline over an explanation
-
-The creator should be able to understand and make the idea
-immediately.
-
-Do not write a full script.
-
-Do not storyboard unnecessarily.
-
-Give the creative premise.
-
-
-STEP 12 — MAKE THE PUNCHLINE PUNCHY
------------------------------------
-
-The punchline must be SHORT.
-
-It should NOT explain the observation.
-
-It should NOT summarize the research.
-
-It should NOT sound like a headline.
-
-It should NOT contain unnecessary setup.
-
-It should feel like the final click.
-
-Ask:
-
-"Can this punchline lose half its words?"
-
-If yes, shorten it.
-
-Prefer a sharp sentence over a clever paragraph.
-
-A punchline can be:
-
-- deadpan
-- ironic
-- absurd
-- conversational
-- understated
-
-But it must be memorable.
-
-Do not force wordplay.
-
-
-STEP 13 — FINAL SELECTION
--------------------------
-
-Rank the ideas internally by:
-
-1. strength of observation
+1. observation
 2. originality
 3. humor
 4. immediate understanding
 5. simplicity
-6. specificity to this situation
+6. specificity
 7. visual memorability
 8. factual discipline
 9. distinctiveness
 
-Return EXACTLY THREE.
-
-Do not return two.
-
-Do not manufacture weak ideas.
-
-If one candidate is weak, replace it with another from the
-private idea pool before answering.
-
-The user asked for three strong ideas.
+Return exactly THREE.
 
 
 ============================================================
 FINAL OUTPUT
 ============================================================
 
-Output ONLY the three selected ideas.
-
-Use EXACTLY this structure:
+Output ONLY this:
 
 IDEA 1:
 FORMAT:
@@ -957,47 +737,37 @@ OBSERVATION:
 EXECUTION:
 PUNCHLINE:
 
-FINAL OUTPUT RULES:
+FINAL RULES:
 
 - Exactly 3 ideas.
-- No SOURCES field.
-- No source list.
+- No introduction.
+- No conclusion.
+- No SOURCES.
 - No citations.
 - No alternative execution.
-- No second version of an idea.
-- No explanation after the three ideas.
-- No creative-process commentary.
-- No essay.
+- No second version.
+- No explanations.
+- No research summary.
+- No established-facts section.
+- No "what to explore".
 - No strategy language.
+- No audience language.
 - No filler.
 
 OBSERVATION:
-Describe the actual thing noticed.
-Keep it concise.
+Concise.
 
 EXECUTION:
-Describe the simplest practical way to turn the observation
-into a comic or visual.
-Keep it concise.
+Practical and concise.
 
 PUNCHLINE:
-Short.
-Sharp.
-Memorable.
-Do not explain the joke.
+Short, sharp and memorable.
 
 Do not write the finished social post.
 
-Do not use:
+Think deeply internally.
 
-- content opportunity
-- audience
-- engagement
-- positioning
-- brand positioning
-- this would perform well
-
-Give the creator three strong ideas.
+Output simply.
 """.strip()
 
 
@@ -1016,17 +786,21 @@ def build_post_idea_prompt(
     return f"""
 You are a senior crypto editor and story finder.
 
-Your job is to discover the most interesting thing worth
-saying about a subject.
+Find the strongest stories hiding inside the subject below.
 
-Do not generate generic content topics.
+Do NOT write a research report.
 
-Find the actual story.
+Do NOT give a long introduction.
+
+Do NOT explain your thinking.
+
+Think deeply internally and output only the strongest ideas.
 
 
 SUBJECT:
 
 {subject}
+
 
 RESEARCH:
 
@@ -1034,21 +808,19 @@ RESEARCH:
 
 
 ============================================================
-PRIVATE PROCESS
+PRIVATE CREATIVE PROCESS
 ============================================================
 
 Do not output this process.
 
+1. ESTABLISH THE FACTS.
 
-1. ESTABLISH THE FACTS
-----------------------
+Identify what is actually confirmed.
 
-Identify:
+Understand:
 
 - what happened
 - what changed
-- what is confirmed
-- what is uncertain
 - what mechanism matters
 - what behavior matters
 - who is affected
@@ -1056,58 +828,36 @@ Identify:
 Do not invent certainty.
 
 
-2. FIND THE STRANGE PART
-------------------------
+2. FIND WHAT IS ACTUALLY INTERESTING.
 
-Ask:
+Look underneath the headline.
 
-"What is genuinely interesting here?"
+Find:
 
-Look for:
-
-- an unexpected mechanism
+- a specific tension
 - an incentive
-- an overlooked consequence
-- a hidden dependency
-- a misunderstanding
+- a mechanism
+- an unexpected consequence
+- an overlooked detail
 - a contradiction
+- a change in behavior
 - an unintuitive result
 - a trade-off
-- a change in behavior
-- an old system appearing inside a new system
-- a detail people are likely to miss
+- a hidden dependency
 
 
-3. FIND THE QUESTION
---------------------
+3. FIND THE QUESTION.
 
-Ask:
+Ask internally:
 
-"What would a smart reader naturally want to know?"
+"What would a smart reader actually want to know?"
 
-Examples:
+The question must come from the specific story.
 
-"What actually happens when...?"
-
-"Who decides...?"
-
-"Why does this work this way?"
-
-"What changes for the user?"
-
-"What doesn't change?"
-
-"Where does the incentive come from?"
-
-"What happens next?"
-
-"What's the part people are misunderstanding?"
-
-Only use questions supported by the research.
+Do not manufacture a generic industry question.
 
 
-4. MOVE PAST THE HEADLINE
--------------------------
+4. MOVE PAST THE HEADLINE.
 
 The headline is not the story.
 
@@ -1119,13 +869,12 @@ The headline is not the story.
 
 These are events.
 
-Find the thing underneath the event.
+Find what is underneath the event.
 
 
-5. GENERATE DIFFERENT STORIES
------------------------------
+5. GENERATE MANY DIFFERENT STORIES INTERNALLY.
 
-Explore privately:
+Explore:
 
 - mechanism
 - consequence
@@ -1145,29 +894,94 @@ Explore privately:
 Do not force categories.
 
 
-6. REJECT GENERIC IDEAS
------------------------
-
-Reject ideas that could apply equally well to ten unrelated
-crypto stories.
+6. REJECT GENERIC IDEAS.
 
 Reject:
 
-"Why this matters."
+- "Why this matters"
+- "The future of..."
+- "Why institutions are adopting..."
+- "Crypto is changing finance..."
+- "The future of AI agents..."
+- "What this means for the industry..."
 
-"The future of..."
-
-"Why institutions are adopting..."
-
-"Why crypto is changing finance..."
-
-unless there is a genuinely specific observation underneath.
+unless there is a genuinely specific observation
+underneath.
 
 
-7. SELF-CRITIQUE
-----------------
+7. DO NOT RESTATE THE NEWS.
 
-For every candidate ask:
+The idea must add a question, explanation,
+observation or useful perspective.
+
+A headline rewritten as a topic is not an idea.
+
+
+8. FACT VS INTERPRETATION.
+
+Only make claims supported by the research.
+
+Do not turn:
+
+"may" into "does"
+
+"could" into "will"
+
+"some" into "everyone"
+
+"described as" into "is"
+
+Do not invent:
+
+- motives
+- intentions
+- consequences
+- capabilities
+- certainty
+
+
+9. MAKE THE THREE IDEAS DIFFERENT.
+
+Each idea must have a different central observation.
+
+Do not return three versions of the same thesis.
+
+Changing the wording does not make an idea different.
+
+
+10. MAKE THE HOOK PUNCHY.
+
+The hook should immediately tell the reader why
+this particular story is interesting.
+
+Avoid long setup.
+
+Avoid:
+
+"The most interesting aspect of..."
+
+"What you need to know about..."
+
+"Here is why this matters..."
+
+"Let's talk about..."
+
+Start with the actual observation.
+
+
+11. MAKE THE ANGLE DIRECT.
+
+The angle should explain exactly what the creator
+would investigate or explain.
+
+One concise sentence.
+
+No mini essay.
+
+
+12. ATTACK EVERY IDEA.
+
+Ask internally:
 
 Is this specific?
 
@@ -1183,64 +997,83 @@ Would the reader already know this?
 
 Could this become a strong opening?
 
-Could this end with something memorable?
+Could this become a strong post?
 
 If not, discard it.
 
 
-8. REMOVE DUPLICATES
---------------------
+13. SIMPLIFY.
 
-Do not return three variations of the same thesis.
+If the idea needs a paragraph to explain,
+it is probably not strong enough.
 
-Each final idea needs a different central observation.
+Think deeply.
+
+Output simply.
 
 
-9. SELECT
----------
+14. FINAL SELECTION.
 
-Choose the strongest 2–3.
+Rank internally by:
 
-If only two are strong, return two.
+1. strength
+2. specificity
+3. originality
+4. usefulness
+5. curiosity
+6. factual discipline
+7. distinctiveness
+
+Return exactly THREE strong ideas.
 
 
 ============================================================
 FINAL OUTPUT
 ============================================================
 
-Return ONLY:
+Output ONLY:
 
 IDEA 1:
-FORMAT:
-HOOK / PREMISE:
+HOOK:
 ANGLE:
-WHAT TO EXPLORE:
-KEY FACTS:
-SOURCES:
 
 IDEA 2:
-FORMAT:
-HOOK / PREMISE:
+HOOK:
 ANGLE:
-WHAT TO EXPLORE:
-KEY FACTS:
-SOURCES:
 
 IDEA 3:
-FORMAT:
-HOOK / PREMISE:
+HOOK:
 ANGLE:
-WHAT TO EXPLORE:
-KEY FACTS:
-SOURCES:
+
+FINAL RULES:
+
+- Exactly 3 ideas.
+- No introduction.
+- No conclusion.
+- No established facts.
+- No strange-part section.
+- No question section.
+- No WHAT TO EXPLORE.
+- No KEY FACTS.
+- No SOURCES.
+- No citations.
+- No research summary.
+- No explanations.
+- No strategy language.
+- No audience language.
+- No filler.
+
+HOOK:
+One or two punchy sentences maximum.
+
+ANGLE:
+One concise sentence.
 
 Do not write the finished post.
 
-Do not explain the process.
+Think deeply internally.
 
-Do not use strategy language.
-
-Do not pad weak ideas.
+Output simply.
 """.strip()
 
 
