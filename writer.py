@@ -191,7 +191,10 @@ def build_research_text(research):
             f"RESEARCH SUMMARY:\n{answer}"
         )
 
-    results = research.get("results", [])
+    results = research.get(
+        "results",
+        [],
+    )
 
     for index, result in enumerate(
         results,
@@ -506,11 +509,9 @@ FACT → BEHAVIOR → OBSERVATION → JOKE
 
 You are looking for the second.
 
-
 USER SITUATION:
 
 {situation}
-
 
 RESEARCH:
 
@@ -529,19 +530,19 @@ Do not output the process.
 STEP 1 — KNOW THE FACTS
 -----------------------
 
-First understand the situation.
+Understand the situation before trying to make it funny.
 
-Identify only the facts actually supported by the research.
+Identify only what the research actually establishes.
 
 Separate:
 
-confirmed fact
-interpretation
-uncertainty
+- confirmed fact
+- interpretation
+- uncertainty
 
-The user's wording may be wrong.
+The user's wording may be incomplete or wrong.
 
-Do not inherit an unsupported claim simply because it sounds
+Do not inherit an unsupported claim because it sounds
 interesting.
 
 Never invent:
@@ -557,107 +558,88 @@ Never invent:
 
 
 STEP 2 — FIND THE HUMAN BEHAVIOR
--------------------------------
+--------------------------------
 
-Now stop thinking about crypto terminology.
+Stop thinking about crypto terminology.
 
 Ask:
 
 "If I watched ordinary people dealing with this exact
 situation, what would I notice?"
 
-Look for behavior.
+Look for the human behavior created by the actual mechanism.
 
-Not metaphors.
+Look for:
 
-Not symbols.
-
-Not logos.
-
-Not technology.
-
-Behavior.
-
-Possible things to notice:
-
-- someone misunderstood the situation
-- someone discovered a condition too late
-- someone technically got what they asked for
-- someone followed a rule that made the situation absurd
-- someone was proud of something that looked ridiculous
-- someone expected one thing and received another
-- someone realized they had less control than expected
-- someone treated an unusual situation as completely normal
-- someone had to explain something that should have been simple
-- someone found the fine print
-- someone waited
-- someone was excluded
-- someone was included for an unexpected reason
-- someone discovered who actually makes the decision
-- several people agreed on something nobody expected
-- something modern behaved exactly like something old
-- something extremely sophisticated created an extremely
-  ordinary problem
+- someone misunderstanding something
+- someone discovering a condition too late
+- someone technically getting what they asked for
+- someone following a rule that creates an absurd result
+- someone expecting one thing and receiving another
+- someone realizing they have less control than expected
+- someone treating something unusual as completely normal
+- someone dealing with an unnecessarily strange process
+- someone finding the fine print
+- someone waiting
+- someone being rewarded or punished for a small behavior
+- someone making a completely ordinary decision inside an
+  extraordinary system
+- something sophisticated creating an extremely ordinary problem
+- a rule producing an unexpectedly human consequence
 
 These are prompts, not required themes.
 
 
-STEP 3 — FIND THE TINY DETAIL
-----------------------------
+STEP 3 — FIND THE TINY OBSERVATION
+----------------------------------
 
-Look for the smallest detail that reveals the whole situation.
+Find the smallest detail that reveals the whole situation.
 
 The strongest comic may need only:
 
-one sentence
+- one sentence
+- one reaction
+- one object
+- one sign
+- one exchange
+- one awkward moment
+- one contradiction
+- one unexpected consequence
 
-one reaction
-
-one object
-
-one sign
-
-one exchange
-
-one awkward moment
-
-one unexpected arrangement
-
-one tiny contradiction
-
-Do NOT automatically build a large scene.
+Do not automatically build a large scene.
 
 Small is usually stronger.
 
 
-STEP 4 — FIND WHAT IS NOT OBVIOUS
----------------------------------
+STEP 4 — GO ONE LEVEL DEEPER
+----------------------------
 
-For each promising observation, ask:
+For every promising observation, ask:
 
 "What is the obvious joke?"
 
-Then reject it.
+Reject it.
 
-Ask again:
+Then ask:
 
-"What is the thing underneath that?"
+"What is underneath that?"
 
-Then ask again:
+Then:
 
 "What would a sharp person notice that everyone else might
 miss?"
 
-Keep going until the idea is no longer simply repeating the
-headline.
+Do not stop at the headline.
+
+Do not simply illustrate the mechanism.
 
 
-STEP 5 — FORCE DIFFERENT DIRECTIONS
------------------------------------
+STEP 5 — GENERATE A LARGE PRIVATE POOL
+---------------------------------------
 
-Generate a large private pool.
+Generate many different possibilities internally.
 
-Some ideas should be:
+Explore:
 
 - observational
 - deadpan
@@ -669,55 +651,56 @@ Some ideas should be:
 - character-based
 - extremely simple
 - slightly surreal
-- based on an ordinary social situation
-- based on an ordinary object
-- based on language
-- based on human behavior
+- ordinary social situations
+- ordinary objects
+- language
+- human behavior
+- unexpected consequences
+- contradictions
 
-Do not force an analogy.
+Do not force:
 
-Do not force characters.
-
-Do not force a comic format.
-
-Do not force a joke.
+- characters
+- analogies
+- metaphors
+- crypto terminology
+- a specific comic format
 
 Find the observation first.
 
 
-STEP 6 — KILL THE LITERAL IDEAS
-------------------------------
+STEP 6 — KILL LITERAL IDEAS
+---------------------------
 
-Immediately reject ideas that are basically:
+Reject ideas that are simply:
 
 "Crypto thing X looks like normal thing Y."
 
 Examples:
 
 validator → security guard
-
 permissioned → locked door
-
 institutions → boardroom
-
 fast → Ferrari
-
 decentralization → voting booth
-
 blockchain → filing cabinet
+airdrop → treasure chest
+deadline → giant calendar
+token → supermarket product
 
-These are not automatically bad formats.
+These are acceptable only if the comparison reveals
+something genuinely unexpected.
 
-They are bad when the entire joke is simply the resemblance.
+The resemblance itself is not the joke.
 
 
-STEP 7 — KILL THE GENERIC IDEAS
-------------------------------
+STEP 7 — KILL GENERIC CRYPTO JOKES
+----------------------------------
 
 Reject anything that could be attached to almost any crypto
 story.
 
-Reject generic:
+Reject:
 
 - FOMO
 - greed
@@ -732,57 +715,133 @@ Reject generic:
 - locked door
 - security guard
 - permission denied
-- corporate boardroom
+- generic "free money"
+- generic "crypto is complicated"
+- generic "I should have read the terms"
+- generic panic
+- generic stupidity
 
-unless THIS PARTICULAR situation creates a genuinely new
-observation.
-
-
-STEP 8 — ATTACK YOUR OWN IDEAS
-------------------------------
-
-For every strong candidate, privately ask:
-
-"Is this actually funny?"
-
-"Is this actually an observation?"
-
-"Am I just repeating a fact?"
-
-"Did I invent anything?"
-
-"Could another crypto account make this exact joke?"
-
-"Does this depend on this particular situation?"
-
-"Can I remove half of it?"
-
-"Can the punchline be shorter?"
-
-"Would the idea still work if the crypto terminology
-disappeared?"
-
-If the answer is no, improve or discard it.
+unless THIS PARTICULAR situation creates a new observation.
 
 
-STEP 9 — CHECK FOR DUPLICATION
-------------------------------
+STEP 8 — FACT VS JOKE
+---------------------
 
-The final ideas must have different underlying observations.
+This is a hard rule.
 
-Changing:
+THE JOKE CAN BE ABSURD.
 
-- the setting
-- the characters
-- the object
-- the visual style
+THE FACTUAL SETUP MUST BE TRUE.
 
-does NOT create a new idea.
+The visual can exaggerate.
+
+The situation can be ridiculous.
+
+The dialogue can be funny.
+
+But do not turn an interpretation into a fact.
+
+Never convert:
+
+"may"
+into
+"does"
+
+Never convert:
+
+"described as"
+into
+"is"
+
+Never convert:
+
+"some participants"
+into
+"everyone"
+
+Never convert:
+
+"could"
+into
+"will"
+
+Never invent a consequence simply because it makes the joke
+better.
+
+If the joke requires an unsupported factual claim, discard
+the joke.
+
+
+STEP 9 — ATTACK EVERY IDEA
+--------------------------
+
+For every candidate, privately ask:
+
+Is this actually funny?
+
+Is this actually an observation?
+
+Am I just repeating the fact?
+
+Did I invent anything?
+
+Could another crypto account make this exact joke?
+
+Does this depend on THIS situation?
+
+Is the human behavior clear?
+
+Can I remove half of it?
+
+Can the punchline be shorter?
+
+Would the idea still be interesting without crypto jargon?
+
+If not, improve or discard it.
+
+
+STEP 10 — MAKE THE THREE IDEAS DIFFERENT
+----------------------------------------
+
+The final three ideas MUST have different underlying
+observations.
+
+Changing the:
+
+- character
+- setting
+- object
+- visual style
+- wording
+
+does NOT make a new idea.
 
 If two ideas make the same point, keep only the stronger one.
 
+The three finalists should preferably come from different
+creative directions.
 
-STEP 10 — BUILD THE SIMPLEST POSSIBLE COMIC
+For example:
+
+IDEA 1:
+A sharp human observation.
+
+IDEA 2:
+An unexpected contradiction.
+
+IDEA 3:
+A simple absurd or ironic situation.
+
+Do not force those exact categories.
+
+The important rule is:
+
+THREE DIFFERENT OBSERVATIONS.
+
+Do not return three costumes for the same joke.
+
+
+STEP 11 — BUILD THE SIMPLEST POSSIBLE COMIC
 -------------------------------------------
 
 Only after the observation is strong should you choose the
@@ -792,154 +851,153 @@ Use the minimum necessary elements.
 
 Prefer:
 
-one panel over four
+- one panel over four
+- two lines over a paragraph
+- one object over a full environment
+- one reaction over five characters
+- one exchange over a long conversation
+- one punchline over an explanation
 
-two lines over a paragraph
+The creator should be able to understand and make the idea
+immediately.
 
-one object over a full environment
+Do not write a full script.
 
-one reaction over five characters
+Do not storyboard unnecessarily.
 
-one punchline over an explanation
-
-The viewer should understand the joke quickly.
-
-
-STEP 11 — FACTUAL AUDIT
------------------------
-
-Before selecting the final ideas:
-
-Check every factual statement against the research.
-
-The comic may exaggerate visually.
-
-The humor may be absurd.
-
-The factual premise cannot be fabricated.
-
-Never convert:
-
-"may"
-
-into
-
-"does"
-
-Never convert:
-
-"described as"
-
-into
-
-"is"
-
-Never convert:
-
-"some participants"
-
-into
-
-"everyone"
-
-Never convert:
-
-"permissioned validator set"
-
-into
-
-"ordinary users cannot participate"
-
-unless the research explicitly establishes that claim.
+Give the creative premise.
 
 
-STEP 12 — SELECT
-----------------
+STEP 12 — MAKE THE PUNCHLINE PUNCHY
+-----------------------------------
 
-Select only the strongest ideas.
+The punchline must be SHORT.
 
-Rank them internally by:
+It should NOT explain the observation.
 
-1. Observation
-2. Originality
-3. Humor
-4. Immediate understanding
-5. Simplicity
-6. Specificity to the situation
-7. Visual memorability
-8. Factual discipline
-9. Distinctiveness
+It should NOT summarize the research.
 
-If two ideas are great, return two.
+It should NOT sound like a headline.
 
-Do NOT manufacture a third.
+It should NOT contain unnecessary setup.
+
+It should feel like the final click.
+
+Ask:
+
+"Can this punchline lose half its words?"
+
+If yes, shorten it.
+
+Prefer a sharp sentence over a clever paragraph.
+
+A punchline can be:
+
+- deadpan
+- ironic
+- absurd
+- conversational
+- understated
+
+But it must be memorable.
+
+Do not force wordplay.
+
+
+STEP 13 — FINAL SELECTION
+-------------------------
+
+Rank the ideas internally by:
+
+1. strength of observation
+2. originality
+3. humor
+4. immediate understanding
+5. simplicity
+6. specificity to this situation
+7. visual memorability
+8. factual discipline
+9. distinctiveness
+
+Return EXACTLY THREE.
+
+Do not return two.
+
+Do not manufacture weak ideas.
+
+If one candidate is weak, replace it with another from the
+private idea pool before answering.
+
+The user asked for three strong ideas.
 
 
 ============================================================
 FINAL OUTPUT
 ============================================================
 
-Output ONLY the selected ideas.
+Output ONLY the three selected ideas.
 
-Use this exact structure:
+Use EXACTLY this structure:
 
 IDEA 1:
 FORMAT:
 OBSERVATION:
 EXECUTION:
 PUNCHLINE:
-SOURCES:
 
 IDEA 2:
 FORMAT:
 OBSERVATION:
 EXECUTION:
 PUNCHLINE:
-SOURCES:
 
 IDEA 3:
 FORMAT:
 OBSERVATION:
 EXECUTION:
 PUNCHLINE:
-SOURCES:
 
-Rules for the final output:
+FINAL OUTPUT RULES:
 
-OBSERVATION must describe the actual thing noticed.
+- Exactly 3 ideas.
+- No SOURCES field.
+- No source list.
+- No citations.
+- No alternative execution.
+- No second version of an idea.
+- No explanation after the three ideas.
+- No creative-process commentary.
+- No essay.
+- No strategy language.
+- No filler.
 
-EXECUTION must be simple enough for a creator to make.
+OBSERVATION:
+Describe the actual thing noticed.
+Keep it concise.
 
-PUNCHLINE must be short.
+EXECUTION:
+Describe the simplest practical way to turn the observation
+into a comic or visual.
+Keep it concise.
 
-SOURCES must identify the research sources supporting the
-factual premise.
+PUNCHLINE:
+Short.
+Sharp.
+Memorable.
+Do not explain the joke.
 
-Do not explain the creative process.
-
-Do not explain why the idea is good.
+Do not write the finished social post.
 
 Do not use:
 
-"content opportunity"
+- content opportunity
+- audience
+- engagement
+- positioning
+- brand positioning
+- this would perform well
 
-"audience"
-
-"engagement"
-
-"positioning"
-
-"brand positioning"
-
-"this would perform well"
-
-Do not write the finished post.
-
-Do not write an essay.
-
-Do not add filler.
-
-Give the creator the idea.
+Give the creator three strong ideas.
 """.strip()
 
 
@@ -970,7 +1028,6 @@ SUBJECT:
 
 {subject}
 
-
 RESEARCH:
 
 {research_text}
@@ -984,6 +1041,7 @@ Do not output this process.
 
 
 1. ESTABLISH THE FACTS
+----------------------
 
 Identify:
 
@@ -999,6 +1057,7 @@ Do not invent certainty.
 
 
 2. FIND THE STRANGE PART
+------------------------
 
 Ask:
 
@@ -1020,6 +1079,7 @@ Look for:
 
 
 3. FIND THE QUESTION
+--------------------
 
 Ask:
 
@@ -1047,6 +1107,7 @@ Only use questions supported by the research.
 
 
 4. MOVE PAST THE HEADLINE
+-------------------------
 
 The headline is not the story.
 
@@ -1062,6 +1123,7 @@ Find the thing underneath the event.
 
 
 5. GENERATE DIFFERENT STORIES
+-----------------------------
 
 Explore privately:
 
@@ -1084,6 +1146,7 @@ Do not force categories.
 
 
 6. REJECT GENERIC IDEAS
+-----------------------
 
 Reject ideas that could apply equally well to ten unrelated
 crypto stories.
@@ -1102,6 +1165,7 @@ unless there is a genuinely specific observation underneath.
 
 
 7. SELF-CRITIQUE
+----------------
 
 For every candidate ask:
 
@@ -1125,6 +1189,7 @@ If not, discard it.
 
 
 8. REMOVE DUPLICATES
+--------------------
 
 Do not return three variations of the same thesis.
 
@@ -1132,6 +1197,7 @@ Each final idea needs a different central observation.
 
 
 9. SELECT
+---------
 
 Choose the strongest 2–3.
 
@@ -1251,6 +1317,7 @@ def generate_ideas(
     """
 
     writer_profile = load_writer_profile()
+
     research_text = build_research_text(
         research
     )
