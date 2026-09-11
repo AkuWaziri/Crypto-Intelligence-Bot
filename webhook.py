@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 
 import uvicorn
 from asgiref.wsgi import WsgiToAsgi
@@ -10,7 +11,9 @@ from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
 
 from config import TELEGRAM_BOT_TOKEN
@@ -22,12 +25,10 @@ from writer import (
     generate_ideas,
     generate_creative_ideas,
 )
+from vision import analyze_image
 
 
-logging.basicConfig(
-    level=logging.INFO
-)
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -57,6 +58,11 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
+<b>Image support</b>
+
+Attach an image with /research, /idea, /ideas or /create in the caption.
+The bot will read the image, combine it with your instruction, research what matters and then run the normal command logic.
+
 <b>Creative Ideas</b>
 
 /idea give meme &lt;situation&gt;
@@ -65,163 +71,89 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 <b>Examples</b>
 
 /research AI agents
-
 /research crypto payments
-
 /research suspicious smart contracts
 
 /idea give meme Elon replied to an unknown account and its token exploded
-
 /idea give me post ideas Arc mainnet is on September 16 and what investors or degens should do before launch
-
 /idea give me post ideas stablecoins
-
 /idea give me post ideas AI agents
 
 /create Crypto GM post
-
 /create write a GM post for today
-
 /create explain AI agents simply
-
 /create break down Binance Agent OS
-
 /create give me a contrarian crypto idea
-
 /create make a guide to using Base
 """
 
 
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
-
-    await update.message.reply_text(
-        HELP_TEXT,
-        parse_mode="HTML",
-    )
+    await update.message.reply_text(HELP_TEXT, parse_mode="HTML")
 
 
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
-
-    await update.message.reply_text(
-        HELP_TEXT,
-        parse_mode="HTML",
-    )
+    await update.message.reply_text(HELP_TEXT, parse_mode="HTML")
 
 
-async def niches_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def niches_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
     niches = get_niches()
-
     if not niches:
-        await update.message.reply_text(
-            "No research niches configured."
-        )
+        await update.message.reply_text("No research niches configured.")
         return
 
     text = "🧠 <b>RESEARCH NICHES</b>\n\n"
-
-    for index, niche in enumerate(
-        niches,
-        start=1,
-    ):
+    for index, niche in enumerate(niches, start=1):
         text += f"{index}. {niche}\n"
 
-    await update.message.reply_text(
-        text,
-        parse_mode="HTML",
-    )
+    await update.message.reply_text(text, parse_mode="HTML")
 
 
-async def add_niche_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def add_niche_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
     if not context.args:
-        await update.message.reply_text(
-            "Usage:\n/addniche <niche>"
-        )
+        await update.message.reply_text("Usage:\n/addniche <niche>")
         return
 
-    niche = " ".join(
-        context.args
-    ).strip()
+    niche = " ".join(context.args).strip()
 
     try:
         added = add_niche(niche)
-
         if added:
-            await update.message.reply_text(
-                f"✅ Added niche: {niche}"
-            )
+            await update.message.reply_text(f"✅ Added niche: {niche}")
         else:
-            await update.message.reply_text(
-                "⚠️ That niche already exists "
-                "or is invalid."
-            )
-
+            await update.message.reply_text("⚠️ That niche already exists or is invalid.")
     except Exception as exc:
-        logger.exception(
-            "Failed to add niche."
-        )
-
-        await update.message.reply_text(
-            f"❌ Could not add niche.\n\n{exc}"
-        )
+        logger.exception("Failed to add niche.")
+        await update.message.reply_text(f"❌ Could not add niche.\n\n{exc}")
 
 
-async def research_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
     if not context.args:
         await update.message.reply_text(
-            "Usage:\n"
-            "/research <topic>\n\n"
-            "Example:\n"
-            "/research AI agents"
+            "Usage:\n/research <topic>\n\nExample:\n/research AI agents"
         )
         return
 
-    query = " ".join(
-        context.args
-    ).strip()
-
-    status = await update.message.reply_text(
-        f"🔎 Researching:\n{query}"
-    )
+    query = " ".join(context.args).strip()
+    status = await update.message.reply_text(f"🔎 Researching:\n{query}")
 
     try:
-        research = await asyncio.to_thread(
-            search_web,
-            query,
-        )
-
+        research = await asyncio.to_thread(search_web, query)
         if not research.get("results"):
-            await status.edit_text(
-                "❌ No useful crypto/Web3 "
-                "results found."
-            )
+            await status.edit_text("❌ No useful crypto/Web3 results found.")
             return
 
         intelligence = await asyncio.to_thread(
@@ -231,35 +163,17 @@ async def research_command(
         )
 
         await status.delete()
-
-        await send_message(
-            update,
-            intelligence,
-        )
+        await send_message(update, intelligence)
 
     except Exception as exc:
-        logger.exception(
-            "Research failed."
-        )
-
+        logger.exception("Research failed.")
         try:
-            await status.edit_text(
-                f"❌ Research failed.\n\n{exc}"
-            )
+            await status.edit_text(f"❌ Research failed.\n\n{exc}")
         except Exception:
-            await update.message.reply_text(
-                f"❌ Research failed.\n\n{exc}"
-            )
+            await update.message.reply_text(f"❌ Research failed.\n\n{exc}")
 
 
-# ============================================================
-# NEW CREATIVE IDEA COMMAND
-# ============================================================
-
-async def idea_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
@@ -274,62 +188,23 @@ async def idea_command(
         )
         return
 
-    raw_request = " ".join(
-        context.args
-    ).strip()
-
+    raw_request = " ".join(context.args).strip()
     lower_request = raw_request.lower()
-
     mode = None
     request_text = ""
 
-    # --------------------------------------------------------
-    # MEME MODE
-    # --------------------------------------------------------
-
-    if lower_request.startswith(
-        "give meme"
-    ):
+    if lower_request.startswith("give meme"):
         mode = "meme"
-
-        request_text = raw_request[
-            len("give meme"):
-        ].strip()
-
-    # --------------------------------------------------------
-    # POST MODE
-    # --------------------------------------------------------
-
-    elif lower_request.startswith(
-        "give me post ideas"
-    ):
+        request_text = raw_request[len("give meme"):].strip()
+    elif lower_request.startswith("give me post ideas"):
         mode = "post"
-
-        request_text = raw_request[
-            len("give me post ideas"):
-        ].strip()
-
-    elif lower_request.startswith(
-        "give post ideas"
-    ):
+        request_text = raw_request[len("give me post ideas"):].strip()
+    elif lower_request.startswith("give post ideas"):
         mode = "post"
-
-        request_text = raw_request[
-            len("give post ideas"):
-        ].strip()
-
-    elif lower_request.startswith(
-        "post ideas"
-    ):
+        request_text = raw_request[len("give post ideas"):].strip()
+    elif lower_request.startswith("post ideas"):
         mode = "post"
-
-        request_text = raw_request[
-            len("post ideas"):
-        ].strip()
-
-    # --------------------------------------------------------
-    # INVALID MODE
-    # --------------------------------------------------------
+        request_text = raw_request[len("post ideas"):].strip()
 
     if not mode:
         await update.message.reply_text(
@@ -342,48 +217,21 @@ async def idea_command(
 
     if not request_text:
         await update.message.reply_text(
-            "Give me the situation or subject after the command.\n\n"
-            "Example:\n"
-            "/idea give meme Elon replied to an unknown account and its token exploded"
+            "Give me the situation or subject after the command."
         )
         return
 
-    if mode == "meme":
-        status_text = (
-            "🎨 Researching the situation "
-            "and exploring meme possibilities..."
-        )
-    else:
-        status_text = (
-            "💡 Researching the subject "
-            "and exploring creative directions..."
-        )
-
     status = await update.message.reply_text(
-        status_text
+        "🎨 Researching the situation and exploring meme possibilities..."
+        if mode == "meme"
+        else "💡 Researching the subject and exploring creative directions..."
     )
 
     try:
-        # ----------------------------------------------------
-        # BROADER RESEARCH FOR /idea
-        # ----------------------------------------------------
-
-        research = await asyncio.to_thread(
-            search_web,
-            request_text,
-            8,
-        )
-
+        research = await asyncio.to_thread(search_web, request_text, 8)
         if not research.get("results"):
-            await status.edit_text(
-                "❌ I couldn't find enough useful "
-                "research for this idea."
-            )
+            await status.edit_text("❌ I couldn't find enough useful research for this idea.")
             return
-
-        # ----------------------------------------------------
-        # CREATIVE ENGINE
-        # ----------------------------------------------------
 
         ideas = await asyncio.to_thread(
             generate_creative_ideas,
@@ -393,40 +241,20 @@ async def idea_command(
         )
 
         if not ideas:
-            raise RuntimeError(
-                "No creative ideas were generated."
-            )
+            raise RuntimeError("No creative ideas were generated.")
 
         await status.delete()
-
-        await send_message(
-            update,
-            ideas,
-        )
+        await send_message(update, ideas)
 
     except Exception as exc:
-        logger.exception(
-            "Creative idea generation failed."
-        )
-
+        logger.exception("Creative idea generation failed.")
         try:
-            await status.edit_text(
-                f"❌ Idea generation failed.\n\n{exc}"
-            )
+            await status.edit_text(f"❌ Idea generation failed.\n\n{exc}")
         except Exception:
-            await update.message.reply_text(
-                f"❌ Idea generation failed.\n\n{exc}"
-            )
+            await update.message.reply_text(f"❌ Idea generation failed.\n\n{exc}")
 
 
-# ============================================================
-# LEGACY IDEAS COMMAND
-# ============================================================
-
-async def ideas_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
@@ -445,68 +273,31 @@ async def ideas_command(
         )
         return
 
-    request_text = " ".join(
-        context.args
-    ).strip()
-
-    status = await update.message.reply_text(
-        f"💡 Researching ideas:\n{request_text}"
-    )
+    request_text = " ".join(context.args).strip()
+    status = await update.message.reply_text(f"💡 Researching ideas:\n{request_text}")
 
     try:
-        research = await asyncio.to_thread(
-            search_web,
-            request_text,
-        )
-
+        research = await asyncio.to_thread(search_web, request_text)
         if not research.get("results"):
-            await status.edit_text(
-                "❌ No useful research found "
-                "for this subject."
-            )
+            await status.edit_text("❌ No useful research found for this subject.")
             return
 
-        ideas = await asyncio.to_thread(
-            generate_ideas,
-            request_text,
-            research,
-        )
-
+        ideas = await asyncio.to_thread(generate_ideas, request_text, research)
         if not ideas:
-            raise RuntimeError(
-                "No ideas were generated."
-            )
+            raise RuntimeError("No ideas were generated.")
 
         await status.delete()
-
-        await send_message(
-            update,
-            ideas,
-        )
+        await send_message(update, ideas)
 
     except Exception as exc:
-        logger.exception(
-            "Ideas generation failed."
-        )
-
+        logger.exception("Ideas generation failed.")
         try:
-            await status.edit_text(
-                f"❌ Ideas failed.\n\n{exc}"
-            )
+            await status.edit_text(f"❌ Ideas failed.\n\n{exc}")
         except Exception:
-            await update.message.reply_text(
-                f"❌ Ideas failed.\n\n{exc}"
-            )
+            await update.message.reply_text(f"❌ Ideas failed.\n\n{exc}")
 
 
-# ============================================================
-# CREATE
-# ============================================================
-
-async def create_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
@@ -524,25 +315,13 @@ async def create_command(
         )
         return
 
-    request_text = " ".join(
-        context.args
-    ).strip()
-
-    status = await update.message.reply_text(
-        "✍️ Researching and creating your content..."
-    )
+    request_text = " ".join(context.args).strip()
+    status = await update.message.reply_text("✍️ Researching and creating your content...")
 
     try:
-        research = await asyncio.to_thread(
-            search_web,
-            request_text,
-        )
-
+        research = await asyncio.to_thread(search_web, request_text)
         if not research:
-            research = {
-                "query": request_text,
-                "results": [],
-            }
+            research = {"query": request_text, "results": []}
 
         content = await asyncio.to_thread(
             generate_content,
@@ -551,175 +330,229 @@ async def create_command(
         )
 
         if not content:
-            raise RuntimeError(
-                "No content was generated."
-            )
+            raise RuntimeError("No content was generated.")
 
         await status.delete()
-
-        await send_message(
-            update,
-            content,
-        )
+        await send_message(update, content)
 
     except Exception as exc:
-        logger.exception(
-            "Create failed."
-        )
-
+        logger.exception("Create failed.")
         try:
-            await status.edit_text(
-                f"❌ Create failed.\n\n{exc}"
-            )
+            await status.edit_text(f"❌ Create failed.\n\n{exc}")
         except Exception:
-            await update.message.reply_text(
-                f"❌ Create failed.\n\n{exc}"
-            )
+            await update.message.reply_text(f"❌ Create failed.\n\n{exc}")
 
 
-# ============================================================
-# FEED
-# ============================================================
-
-async def feed_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def feed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
-    status = await update.message.reply_text(
-        "🧠 Running a fresh intelligence feed..."
-    )
+    status = await update.message.reply_text("🧠 Running a fresh intelligence feed...")
 
     try:
         from scheduler import generate_feed
-
         reports = await generate_feed()
 
         await status.delete()
 
         if not reports:
-            await update.message.reply_text(
-                "No useful discoveries "
-                "found this cycle."
-            )
+            await update.message.reply_text("No useful discoveries found this cycle.")
             return
 
         for report in reports:
-            await send_message(
-                update,
-                report,
-            )
+            await send_message(update, report)
 
     except Exception as exc:
-        logger.exception(
-            "Manual feed failed."
-        )
-
+        logger.exception("Manual feed failed.")
         try:
-            await status.edit_text(
-                f"❌ Feed failed.\n\n{exc}"
-            )
+            await status.edit_text(f"❌ Feed failed.\n\n{exc}")
         except Exception:
-            await update.message.reply_text(
-                f"❌ Feed failed.\n\n{exc}"
-            )
+            await update.message.reply_text(f"❌ Feed failed.\n\n{exc}")
 
 
-# ============================================================
-# TELEGRAM MESSAGE SENDER
-# ============================================================
-
-async def send_message(
-    update: Update,
-    text: str,
-):
-    if not update.message:
-        return
-
-    if not text:
+async def send_message(update: Update, text: str):
+    if not update.message or not text:
         return
 
     max_length = 3900
+    for start in range(0, len(text), max_length):
+        await update.message.reply_text(text[start:start + max_length])
 
-    for start in range(
-        0,
-        len(text),
-        max_length,
-    ):
-        await update.message.reply_text(
-            text[start:start + max_length]
+
+# ============================================================
+# MULTIMODAL IMAGE COMMANDS
+# ============================================================
+
+async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /research, /idea, /ideas and /create inside a photo caption."""
+    message = update.message
+    if not message or not message.photo or not message.caption:
+        return
+
+    caption = message.caption.strip()
+    match = re.match(r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return
+
+    command = match.group(1).lower()
+    user_instruction = (match.group(2) or "").strip()
+
+    status = await message.reply_text("🖼️ Reading the image and understanding your request...")
+
+    try:
+        photo = message.photo[-1]
+        telegram_file = await photo.get_file()
+        image_bytes = bytes(await telegram_file.download_as_bytearray())
+
+        visual_context = await asyncio.to_thread(
+            analyze_image,
+            image_bytes,
+            user_instruction,
         )
 
+        if not visual_context:
+            raise RuntimeError("The image could not be understood.")
 
-# ============================================================
-# HANDLERS
-# ============================================================
+        combined_request = (
+            f"USER REQUEST:\n{user_instruction or 'Determine what matters in this image.'}\n\n"
+            f"VISUAL EVIDENCE FROM IMAGE:\n{visual_context}\n\n"
+            "Treat the visual evidence as input to investigate. Verify factual claims through research."
+        )
+
+        if command == "research":
+            if not user_instruction:
+                combined_query = (
+                    "Research and explain the crypto/Web3 subject shown in this image. "
+                    "Extract the important entities, claims and context from the image and verify them.\n\n"
+                    + combined_request
+                )
+            else:
+                combined_query = combined_request
+
+            research = await asyncio.to_thread(search_web, combined_query)
+            if not research.get("results"):
+                await status.edit_text("❌ No useful crypto/Web3 research found from the image and request.")
+                return
+
+            intelligence = await asyncio.to_thread(
+                generate_intelligence,
+                research,
+                "image-assisted manual research",
+            )
+            await status.delete()
+            await send_message(update, intelligence)
+            return
+
+        if command == "create":
+            create_request = (
+                user_instruction or
+                "Create the most useful crypto content based on what is shown in this image."
+            )
+            research = await asyncio.to_thread(search_web, combined_request)
+            if not research:
+                research = {"query": combined_request, "results": []}
+
+            content = await asyncio.to_thread(
+                generate_content,
+                create_request + "\n\nImage context:\n" + visual_context,
+                research,
+            )
+            if not content:
+                raise RuntimeError("No content was generated.")
+
+            await status.delete()
+            await send_message(update, content)
+            return
+
+        if command == "ideas":
+            ideas_request = user_instruction or "Generate useful crypto content ideas from this image."
+            research = await asyncio.to_thread(search_web, combined_request)
+            if not research.get("results"):
+                await status.edit_text("❌ No useful research found for the image.")
+                return
+
+            ideas = await asyncio.to_thread(
+                generate_ideas,
+                ideas_request + "\n\nImage context:\n" + visual_context,
+                research,
+            )
+            if not ideas:
+                raise RuntimeError("No ideas were generated.")
+
+            await status.delete()
+            await send_message(update, ideas)
+            return
+
+        # /idea
+        lower_request = user_instruction.lower()
+        if lower_request.startswith("give meme"):
+            mode = "meme"
+            idea_request = user_instruction[len("give meme"):].strip()
+        elif lower_request.startswith("give me post ideas"):
+            mode = "post"
+            idea_request = user_instruction[len("give me post ideas"):].strip()
+        elif lower_request.startswith("give post ideas"):
+            mode = "post"
+            idea_request = user_instruction[len("give post ideas"):].strip()
+        elif lower_request.startswith("post ideas"):
+            mode = "post"
+            idea_request = user_instruction[len("post ideas"):].strip()
+        else:
+            await status.edit_text(
+                "❌ For an image /idea request, use:\n"
+                "/idea give meme <situation>\n"
+                "/idea give me post ideas <subject>"
+            )
+            return
+
+        idea_request = (
+            idea_request or "Create ideas from the subject and visual details in this image."
+        ) + "\n\nImage context:\n" + visual_context
+
+        research = await asyncio.to_thread(search_web, idea_request, 8)
+        if not research.get("results"):
+            await status.edit_text("❌ I couldn't find enough useful research for this image.")
+            return
+
+        ideas = await asyncio.to_thread(
+            generate_creative_ideas,
+            mode,
+            idea_request,
+            research,
+        )
+        if not ideas:
+            raise RuntimeError("No creative ideas were generated.")
+
+        await status.delete()
+        await send_message(update, ideas)
+
+    except Exception as exc:
+        logger.exception("Image command failed.")
+        try:
+            await status.edit_text(f"❌ Image command failed.\n\n{exc}")
+        except Exception:
+            await message.reply_text(f"❌ Image command failed.\n\n{exc}")
+
 
 def setup_handlers():
-    telegram_app.add_handler(
-        CommandHandler(
-            "start",
-            start,
-        )
-    )
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(CommandHandler("help", help_command))
+    telegram_app.add_handler(CommandHandler("niches", niches_command))
+    telegram_app.add_handler(CommandHandler("research", research_command))
+    telegram_app.add_handler(CommandHandler("idea", idea_command))
+    telegram_app.add_handler(CommandHandler("ideas", ideas_command))
+    telegram_app.add_handler(CommandHandler("create", create_command))
+    telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
+    telegram_app.add_handler(CommandHandler("feed", feed_command))
 
+    # Telegram CommandHandler intentionally does not process commands in media captions.
+    # This handler provides the image-aware command path.
     telegram_app.add_handler(
-        CommandHandler(
-            "help",
-            help_command,
-        )
-    )
-
-    telegram_app.add_handler(
-        CommandHandler(
-            "niches",
-            niches_command,
-        )
-    )
-
-    telegram_app.add_handler(
-        CommandHandler(
-            "research",
-            research_command,
-        )
-    )
-
-    # New creative idea engine.
-    telegram_app.add_handler(
-        CommandHandler(
-            "idea",
-            idea_command,
-        )
-    )
-
-    # Existing legacy idea engine.
-    telegram_app.add_handler(
-        CommandHandler(
-            "ideas",
-            ideas_command,
-        )
-    )
-
-    telegram_app.add_handler(
-        CommandHandler(
-            "create",
-            create_command,
-        )
-    )
-
-    telegram_app.add_handler(
-        CommandHandler(
-            "addniche",
-            add_niche_command,
-        )
-    )
-
-    telegram_app.add_handler(
-        CommandHandler(
-            "feed",
-            feed_command,
+        MessageHandler(
+            filters.PHOTO & filters.CaptionRegex(
+                r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s|$)"
+            ),
+            image_command,
         )
     )
 
@@ -727,157 +560,76 @@ def setup_handlers():
 setup_handlers()
 
 
-# ============================================================
-# FLASK HEALTH CHECK
-# ============================================================
-
 @app.get("/")
 def health():
-    return jsonify(
-        {
-            "service": "crypto-intelligence-bot",
-            "status": "ok",
-        }
-    )
+    return jsonify({"service": "crypto-intelligence-bot", "status": "ok"})
 
-
-# ============================================================
-# TELEGRAM WEBHOOK
-# ============================================================
 
 @app.post("/telegram")
 def telegram_webhook():
-    data = request.get_json(
-        force=True,
-        silent=True,
-    )
-
+    data = request.get_json(force=True, silent=True)
     if not data:
-        return jsonify(
-            {"status": "ignored"}
-        )
+        return jsonify({"status": "ignored"})
 
     try:
-        update = Update.de_json(
-            data,
-            telegram_app.bot,
-        )
-
-        telegram_app.update_queue.put_nowait(
-            update
-        )
-
-        return jsonify(
-            {"status": "ok"}
-        )
-
+        update = Update.de_json(data, telegram_app.bot)
+        telegram_app.update_queue.put_nowait(update)
+        return jsonify({"status": "ok"})
     except Exception as exc:
-        logger.exception(
-            "Failed to queue Telegram update."
-        )
+        logger.exception("Failed to queue Telegram update.")
+        return jsonify({"status": "error", "error": str(exc)}), 500
 
-        return jsonify(
-            {
-                "status": "error",
-                "error": str(exc),
-            }
-        ), 500
-
-
-# ============================================================
-# STARTUP
-# ============================================================
 
 async def startup():
     await telegram_app.initialize()
-
     await telegram_app.start()
 
-    render_url = os.environ.get(
-        "RENDER_EXTERNAL_URL"
-    )
-
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
     if render_url:
-        webhook_url = (
-            f"{render_url.rstrip('/')}"
-            "/telegram"
-        )
-
+        webhook_url = f"{render_url.rstrip('/')}/telegram"
         await telegram_app.bot.set_webhook(
             url=webhook_url,
             allowed_updates=Update.ALL_TYPES,
         )
-
-        logger.info(
-            "Telegram webhook registered: %s",
-            webhook_url,
-        )
-
+        logger.info("Telegram webhook registered: %s", webhook_url)
     else:
         logger.info(
-            "RENDER_EXTERNAL_URL not set. "
-            "Running without webhook registration "
-            "for local testing."
+            "RENDER_EXTERNAL_URL not set. Running without webhook registration for local testing."
         )
 
-
-# ============================================================
-# SHUTDOWN
-# ============================================================
 
 async def shutdown():
     try:
         await telegram_app.bot.delete_webhook()
     except Exception:
-        logger.exception(
-            "Failed to delete Telegram webhook."
-        )
+        logger.exception("Failed to delete Telegram webhook.")
 
     try:
         await telegram_app.stop()
     except Exception:
-        logger.exception(
-            "Failed to stop Telegram application."
-        )
+        logger.exception("Failed to stop Telegram application.")
 
     try:
         await telegram_app.shutdown()
     except Exception:
-        logger.exception(
-            "Failed to shutdown Telegram application."
-        )
+        logger.exception("Failed to shutdown Telegram application.")
 
-
-# ============================================================
-# MAIN
-# ============================================================
 
 async def main():
     await startup()
 
-    port = int(
-        os.environ.get(
-            "PORT",
-            10000,
-        )
-    )
-
+    port = int(os.environ.get("PORT", 10000))
     asgi_app = WsgiToAsgi(app)
-
     config = uvicorn.Config(
         asgi_app,
         host="0.0.0.0",
         port=port,
         log_level="info",
     )
-
-    server = uvicorn.Server(
-        config
-    )
+    server = uvicorn.Server(config)
 
     try:
         await server.serve()
-
     finally:
         await shutdown()
 
