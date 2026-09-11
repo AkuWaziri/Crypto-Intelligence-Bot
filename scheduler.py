@@ -14,11 +14,19 @@ from config import RESEARCH_INTERVAL_MINUTES
 logger = logging.getLogger(__name__)
 
 
+# These are discovery lanes, not a rotation. Every scheduled sweep searches
+# across the crypto landscape so the strongest current developments can win.
 TREND_SEARCHES = [
-    "crypto latest breaking news today major developments",
-    "crypto emerging narratives latest launches protocols DeFi stablecoins payments AI agents infrastructure security",
-    "crypto latest onchain activity protocol updates exploits funding partnerships governance regulation",
-    "crypto newest opportunities airdrops rewards campaigns token launches ecosystem developments",
+    "crypto breaking current news latest major developments adoption institutional crypto",
+    "crypto emerging narratives latest DeFi stablecoins payments tokenization RWA DePIN staking restaking",
+    "crypto AI agents AI blockchain infrastructure wallets developer activity interoperability cross-chain L2 L3",
+    "crypto on-chain activity whale wallet user growth transactions volume liquidity trading ecosystem activity",
+    "crypto exploits hacks vulnerabilities security incidents audits protocol failures privacy security",
+    "crypto funding investments partnerships integrations launches products protocols token launches mainnet testnet",
+    "crypto governance regulation policy approvals institutional adoption legal developments DAOs ecosystem milestones",
+    "crypto airdrops rewards campaigns quests incentives opportunities new ecosystems tokenomics unlocks NFTs consumer crypto",
+    "crypto Bitcoin Ethereum Solana ecosystem developments new protocols experiments social consumer crypto exchanges wallets",
+    "crypto latest adoption users developers revenue fees stablecoin payments infrastructure major ecosystem developments",
 ]
 
 HISTORY_FILE = Path("feed_history.json")
@@ -157,13 +165,15 @@ def _trend_score(result):
         "announced", "announcement", "launch", "launched", "released",
         "exploit", "hack", "funding", "integrated", "integration",
         "governance", "upgrade", "mainnet", "testnet", "airdrop",
-        "claim", "partnership", "regulation", "approval",
+        "claim", "partnership", "regulation", "approval", "adoption",
+        "users", "user growth", "developers", "developer activity",
     ]
 
     signal_terms = [
         "billion", "million", "volume", "users", "transactions", "wallets",
         "funding", "revenue", "fees", "liquidity", "supply", "adoption",
-        "exploit", "hack", "vulnerability", "launch", "mainnet",
+        "exploit", "hack", "vulnerability", "launch", "mainnet", "airdrop",
+        "rewards", "campaign", "partnership", "integration", "institutional",
     ]
 
     for term in freshness_terms:
