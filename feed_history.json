@@ -1,0 +1,23 @@
+[
+  {
+    "fingerprint": "79c93f55aa48d580e356f4d9ced028f11e61df33fe50016f432518c5cf7eab96",
+    "title": "Crypto's next billion users might be AI agents, and they're ...",
+    "content": "Crypto’s next billion users might be AI agents, and they’re paying with stablecoins # Crypto’s next billion users might be AI agents, and they’re paying with stablecoins ## According to Coinbase’s head of AI product, we’re currently in the “Napster/LimeWire era” of agentic payments. By Francisco Rodrigues|Edited by Cheyenne Ligon Aug 23, 2026, 9:00 a.m. ET 11 min read Share Share this article Copy link Agentic payments are on the rise (Getty Images/Curly_photo) Summary Show - AI agents are emerging as a new class of customers, making autonomous payments for things like data, computing power and online tools. - Stablecoins, particularly USDC, have taken an early lead in small, high-frequency machine-to-machine payments, while card networks remain better suited to larger purchases requiring credit, refunds and dispute protections. - Coinbase, Cloudflare, MoonPay, Visa and Mastercard are developing systems that let agents spend within preset limits, but adoption remains nascent, and questions about security, funding and liability are unresolved. For years, companies like Coinbase and Solana Labs have ruminated about how to onboard the next billion users into crypto. Those users may so",
+    "url": "https://www.coindesk.com/business/2026/08/23/crypto-s-next-billion-users-might-be-ai-agents-and-they-re-paying-with-stablecoins",
+    "fed_at": "2026-09-11T18:05:36.066372+00:00"
+  },
+  {
+    "fingerprint": "423102c580bd0d9d8b0cf9794f3df4380107e2d54399247df49222535537605d",
+    "title": "Exodus Launches XO Cash Stablecoin for AI Agent Payments",
+    "content": "Exodus Launches XO Cash Stablecoin for AI Agent Payments Written by Nate Kostar staff writer Reviewed by Sam Bourgi staff writer Written by Nate Kostar staff writer Reviewed by Sam Bourgi staff writer # Exodus launches AI agent-focused stablecoin on Solana Latest News Published May 8, 2026 The crypto wallet company pairs the XO Cash token with software tools that let AI agents transact using preset spending controls and stablecoin payments. Crypto wallet provider Exodus has launched XO Cash, a Solana-based stablecoin and software toolkit designed to let AI agents make payments and access services without directly controlling private keys. According to Friday's announcement, the system, developed with MoonPay, allows developers to create agent-linked wallets, assign spending limits and issue virtual debit cards tied to Visa payment rails. XO Cash integrates with Exodus Pay and includes a software development kit that allows users to fund AI agent wallets using their Exodus Pay balances while maintaining custody of their private keys. Users can set transaction caps, merchant restrictions and daily spending limits for each agent wallet. Exodus said AI agents using XO Cash can transact",
+    "url": "https://regional-front.cointelegraph.com/news/exodus-launches-ai-agent-focused-stablecoin-on-solana",
+    "fed_at": "2026-09-11T18:05:36.066372+00:00"
+  },
+  {
+    "fingerprint": "cc50dd9d820ebf370e53afdb60198bb82ef310365e75e3db7165516837ce82c0",
+    "title": "Agentic Finance and Stablecoins: Everything to Know ...",
+    "content": "Agentic Finance and Stablecoins: Everything to Know About the New Stack for Autonomous Commerce | Fireblocks Agentic Finance & Stablecoins: The New Stack for AI Commerce May 15, 2026 # Agentic Finance and Stablecoins: Everything to Know About the New Stack for Autonomous Commerce ## Table of Contents An Introduction to Agentic Commerce The Agent Builder Landscape The Agentic Payment Protocol Landscape Security and Guardrails in an Agentic World The Consumer Frontier The Institutional Frontier The Infrastructure Stack: What Agents Actually Need How to Build for the Agentic Economy Autonomous AI agents are beginning to move money. This report was designed to help builders, financial institutions, and product teams understand the infrastructure that makes that possible. It covers agentic payment protocols, how blockchain rails and stablecoins fit in, security models, and the practical decisions teams face when building for a world where agents, not humans, initiate transactions. ### What Agentic Means and Why It’s Important The last decade of artificial intelligence in finance meant better recommendations: smarter fraud detection, personalized product suggestions, improved underwritin",
+    "url": "https://www.fireblocks.com/report/agentic-finance-stack-ai-commerce",
+    "fed_at": "2026-09-11T18:05:36.066372+00:00"
+  }
+]
