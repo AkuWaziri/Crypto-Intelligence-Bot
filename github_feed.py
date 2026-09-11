@@ -1,18 +1,11 @@
 import asyncio
 import logging
 
-from research import search_web
-from writer import generate_intelligence
-from scheduler import choose_research_topics, research_niche
+from scheduler import generate_feed, record_fed_items
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-
 from telegram import Bot
 
-
-logging.basicConfig(
-    level=logging.INFO,
-)
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -25,52 +18,49 @@ async def main():
 
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-    topics = choose_research_topics()
+    reports, history = await generate_feed()
 
-    if not topics:
-        logger.info("No research niches available.")
+    if not reports:
+        logger.info("No new high-signal crypto developments found this cycle.")
         return
 
     await bot.send_message(
         chat_id=TELEGRAM_CHAT_ID,
         text=(
             "🧠 <b>CRYPTO INTELLIGENCE FEED</b>\n\n"
-            "Fresh research worth looking at:"
+            "Current developments worth looking at:"
         ),
         parse_mode="HTML",
     )
 
-    for niche in topics:
+    sent_reports = []
+
+    for item in reports:
+        intelligence = item["report"]
+
+        if len(intelligence) > 3900:
+            intelligence = intelligence[:3900] + "\n\n[truncated]"
+
         try:
-            research = await research_niche(niche)
-
-            if not research:
-                continue
-
-            intelligence = await asyncio.to_thread(
-                generate_intelligence,
-                research,
-                "GitHub scheduled feed",
-            )
-
-            if not intelligence:
-                continue
-
-            if len(intelligence) > 3900:
-                intelligence = intelligence[:3900]
-
             await bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
                 text=intelligence,
             )
-
+            sent_reports.append(item)
         except Exception:
             logger.exception(
-                "GitHub feed failed for niche: %s",
-                niche,
+                "Telegram send failed for: %s",
+                item.get("candidate", {}).get("title", "unknown"),
             )
 
-    logger.info("GitHub intelligence feed completed.")
+    # Only mark a story as fed after Telegram accepted the message.
+    if sent_reports:
+        record_fed_items(history, sent_reports)
+
+    logger.info(
+        "GitHub intelligence feed completed. Sent %s new stories.",
+        len(sent_reports),
+    )
 
 
 if __name__ == "__main__":
