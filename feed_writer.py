@@ -14,19 +14,35 @@ def _fit_feed(text):
     if len(text) <= FEED_MAX_CHARACTERS:
         return text
     clipped = text[:FEED_MAX_CHARACTERS].rstrip()
-    cut = max(clipped.rfind("\n"), clipped.rfind("."), clipped.rfind("!"), clipped.rfind("?"))
+    cut = max(
+        clipped.rfind("\n"),
+        clipped.rfind("."),
+        clipped.rfind("!"),
+        clipped.rfind("?"),
+    )
     if cut >= 300:
         return clipped[:cut + 1].strip()
     return clipped.rstrip(" ,;:-")
 
 
 def generate_feed_intelligence(research):
-    """Generate a compact feed capped at 500 characters."""
+    """Generate one compact, non-repetitive feed from one or more candidates."""
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY is missing.")
 
     writer_profile = load_writer_profile()
-    research_text = build_research_text(research, max_results=5, max_content_chars=500)
+
+    if isinstance(research, list):
+        research_text = "\n\n--- DISTINCT CANDIDATE ---\n\n".join(
+            build_research_text(item, max_results=1, max_content_chars=450)
+            for item in research
+        )
+    else:
+        research_text = build_research_text(
+            research,
+            max_results=5,
+            max_content_chars=500,
+        )
 
     prompt = f"""
 You are the intelligence editor behind a distinctive crypto creator.
@@ -37,21 +53,32 @@ CREATOR DNA
 ===========
 {writer_profile}
 
-RESEARCH
-========
+RESEARCH CANDIDATES
+===================
 {research_text}
 
-PRIORITY
-========
-CONTENT OPPORTUNITIES and RABBIT HOLES are the main value of this feed.
+TASK
+====
+Create ONE Telegram feed message from the strongest distinct developments above.
+Do not write one mini-report per source. Do not repeat the same idea, story, mechanism,
+question, or wording across sections.
 
-CONTENT OPPORTUNITIES:
-Give 1–2 useful angles. Each must say what could be explored and why it matters. Never reduce an angle to a title.
+Use this compact structure:
+1. One or two strongest CONTENT OPPORTUNITIES. Each must state what could be explored
+   and why it matters.
+2. One or two RABBIT HOLES. Each must identify a deeper question or missing evidence
+   worth investigating.
 
-RABBIT HOLES:
-Give 1–2 investigation paths. Each must identify the deeper question or missing evidence and why it matters. Never give vague questions.
+Prefer two genuinely different developments when the evidence supports it. If the
+candidates overlap, merge them and use the space for a deeper angle instead.
 
-If space is tight, shorten these sections but never replace them with summary sections. Only add a tiny SIGNAL if room remains.
+OUTPUT FORMAT
+=============
+OPP: <useful content angle and why it matters>
+RABBIT: <specific deeper investigation and why it matters>
+
+Add a second OPP/RABBIT pair only if it remains useful and fits under the hard limit.
+Do not add Signal, What happened, Mechanism, Numbers, or other repeated summary sections.
 
 RULES
 =====
@@ -70,12 +97,16 @@ RULES
     client = Groq(api_key=GROQ_API_KEY)
     response = client.chat.completions.create(
         model=GROQ_MODEL,
-        temperature=0.55,
+        temperature=0.45,
         max_tokens=FEED_MAX_OUTPUT_TOKENS,
         messages=[
             {
                 "role": "system",
-                "content": "You are a sharp crypto intelligence editor. Never exceed 500 characters in the final answer.",
+                "content": (
+                    "You are a sharp crypto intelligence editor. "
+                    "Produce one unified Telegram feed, never repeated sections, "
+                    "and never exceed 500 characters."
+                ),
             },
             {"role": "user", "content": prompt},
         ],
