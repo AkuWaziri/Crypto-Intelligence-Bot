@@ -251,11 +251,16 @@ def classify_query_angle(query):
 
 def build_visual_reference_result(query):
     """Keep image-grounded creative requests usable when web search has no hit."""
-    visual_marker = "VISUAL EVIDENCE FROM IMAGE:"
-    if visual_marker not in query:
+    markers = [
+        "VISUAL EVIDENCE FROM IMAGE:",
+        "IMAGE CONTEXT:",
+    ]
+
+    marker = next((item for item in markers if item in query), None)
+    if not marker:
         return None
 
-    visual_context = query.split(visual_marker, 1)[1].strip()
+    visual_context = query.split(marker, 1)[1].strip()
     if not visual_context:
         return None
 
@@ -274,11 +279,14 @@ def search_web(query: str, max_results: int = MAX_RESEARCH_RESULTS):
     if not query:
         raise ValueError("Research query cannot be empty.")
 
-    # Image-assisted manual research is already grounded by the vision model.
-    # Do not discard valid article results merely because the article does not
-    # repeat a generic crypto keyword. Normal text research keeps the normal
-    # crypto relevance filter.
-    allow_targeted = "VISUAL EVIDENCE FROM IMAGE:" in query
+    # Image-assisted research can be grounded by either the vision packet
+    # or the image context passed into the creative idea engine.
+    # In both cases, do not discard useful article results merely because an
+    # article does not repeat a generic crypto keyword.
+    allow_targeted = (
+        "VISUAL EVIDENCE FROM IMAGE:" in query
+        or "IMAGE CONTEXT:" in query
+    )
 
     per_query = max(2, min(4, int(max_results)))
     all_results = []
