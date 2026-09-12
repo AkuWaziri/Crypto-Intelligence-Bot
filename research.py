@@ -251,14 +251,19 @@ def classify_query_angle(query):
 
 def build_visual_reference_result(query):
     """Keep image-grounded creative requests usable when web search has no hit."""
-    markers = [
-        "VISUAL EVIDENCE FROM IMAGE:",
-        "IMAGE CONTEXT:",
+    marker_positions = [
+        query.find("VISUAL EVIDENCE FROM IMAGE:"),
+        query.find("Image context:"),
     ]
-
-    marker = next((item for item in markers if item in query), None)
-    if not marker:
+    marker_positions = [position for position in marker_positions if position >= 0]
+    if not marker_positions:
         return None
+
+    marker_position = min(marker_positions)
+    if query[marker_position:].startswith("VISUAL EVIDENCE FROM IMAGE:"):
+        marker = "VISUAL EVIDENCE FROM IMAGE:"
+    else:
+        marker = "Image context:"
 
     visual_context = query.split(marker, 1)[1].strip()
     if not visual_context:
@@ -285,7 +290,7 @@ def search_web(query: str, max_results: int = MAX_RESEARCH_RESULTS):
     # article does not repeat a generic crypto keyword.
     allow_targeted = (
         "VISUAL EVIDENCE FROM IMAGE:" in query
-        or "IMAGE CONTEXT:" in query
+        or "Image context:" in query
     )
 
     per_query = max(2, min(4, int(max_results)))
