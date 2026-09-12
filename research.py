@@ -2,7 +2,7 @@ import html
 import logging
 import re
 import requests
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 from xml.etree import ElementTree
 
 from config import MAX_RESEARCH_RESULTS
@@ -12,12 +12,7 @@ logger = logging.getLogger(__name__)
 GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
 BING_NEWS_RSS = "https://www.bing.com/news/search"
 
-LOW_VALUE_TERMS = [
-    "casino",
-    "gambling",
-    "horoscope",
-    "celebrity gossip",
-]
+LOW_VALUE_TERMS = ["casino", "gambling", "horoscope", "celebrity gossip"]
 
 CRYPTO_TERMS = [
     "crypto", "cryptocurrency", "blockchain", "web3", "defi", "token",
@@ -63,10 +58,12 @@ def normalize_query_text(text):
     return re.sub(r"\s+", " ", str(text or "").strip().lower())
 
 
-def is_crypto_relevant(result):
+def is_crypto_relevant(result, allow_targeted=False):
     text = f"{result.get('title', '')} {result.get('content', '')}".lower()
     if any(term in text for term in LOW_VALUE_TERMS):
         return False
+    if allow_targeted:
+        return True
     return any(term in text for term in CRYPTO_TERMS)
 
 
@@ -189,7 +186,7 @@ def diversify_results(results, limit=30):
     return selected
 
 
-def parse_rss(xml_text, research_angle, max_results):
+def parse_rss(xml_text, research_angle, max_results, allow_targeted=False):
     root = ElementTree.fromstring(xml_text)
     results = []
     for item in root.findall(".//item")[:max_results]:
@@ -197,12 +194,17 @@ def parse_rss(xml_text, research_angle, max_results):
         link = item.findtext("link", "")
         description = item.findtext("description", "")
         result = normalize_result(title, link, description, research_angle)
-        if result["url"] and result["title"] and result["content"] and is_crypto_relevant(result):
+        if (
+            result["url"]
+            and result["title"]
+            and result["content"]
+            and is_crypto_relevant(result, allow_targeted=allow_targeted)
+        ):
             results.append(result)
     return results
 
 
-def google_news_search(query, max_results, research_angle):
+def google_news_search(query, max_results, research_angle, allow_targeted=False):
     response = requests.get(
         GOOGLE_NEWS_RSS,
         params={"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"},
@@ -210,10 +212,10 @@ def google_news_search(query, max_results, research_angle):
         timeout=30,
     )
     response.raise_for_status()
-    return parse_rss(response.text, research_angle, max_results)
+    return parse_rss(response.text, research_angle, max_results, allow_targeted)
 
 
-def bing_news_search(query, max_results, research_angle):
+def bing_news_search(query, max_results, research_angle, allow_targeted=False):
     response = requests.get(
         BING_NEWS_RSS,
         params={"q": query, "format": "rss"},
@@ -221,7 +223,7 @@ def bing_news_search(query, max_results, research_angle):
         timeout=30,
     )
     response.raise_for_status()
-    return parse_rss(response.text, research_angle, max_results)
+    return parse_rss(response.text, research_angle, max_results, allow_targeted)
 
 
 def classify_query_angle(query):
@@ -248,22 +250,27 @@ def classify_query_angle(query):
 
 
 def search_web(query: str, max_results: int = MAX_RESEARCH_RESULTS):
-    """Free research path used by the manual Telegram commands.
-
-    Exa is intentionally not required here. The previous provider returned
-    HTTP 402, which caused /research, /idea and /ideas to fail even though
-    the rest of the bot was healthy.
-    """
     query = str(query or "").strip()
     if not query:
         raise ValueError("Research query cannot be empty.")
+
+    # Image-assisted manual research is already grounded by the vision model.
+    # Do not discard valid article results merely because the article does not
+    # repeat a generic crypto keyword. Normal text research keeps the normal
+    # crypto relevance filter.
+    allow_targeted = "VISUAL EVIDENCE FROM IMAGE:" in query
 
     per_query = max(2, min(4, int(max_results)))
     all_results = []
 
     for research_query, angle in build_research_queries(query):
         try:
-            results = google_news_search(research_query, per_query, angle)
+            results = google_news_search(
+                research_query,
+                per_query,
+                angle,
+                allow_targeted=allow_targeted,
+            )
             all_results.extend(results)
             if results:
                 logger.info("Google News angle %s returned %s results", angle, len(results))
@@ -272,7 +279,12 @@ def search_web(query: str, max_results: int = MAX_RESEARCH_RESULTS):
 
     if not all_results:
         try:
-            all_results = bing_news_search(query, max(5, int(max_results)), "news")
+            all_results = bing_news_search(
+                query,
+                max(5, int(max_results)),
+                "news",
+                allow_targeted=allow_targeted,
+            )
         except Exception:
             logger.exception("Bing News fallback failed")
 
