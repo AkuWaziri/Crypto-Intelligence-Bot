@@ -5,7 +5,7 @@ from groq import Groq
 from config import GROQ_API_KEY, GROQ_MODEL
 from writer import build_research_text, load_writer_profile
 
-FEED_MAX_OUTPUT_TOKENS = 260
+FEED_MAX_OUTPUT_TOKENS = 300
 FEED_MAX_CHARACTERS = 500
 
 
@@ -26,7 +26,7 @@ def _fit_feed(text):
 
 
 def generate_feed_intelligence(research):
-    """Generate one compact, non-repetitive feed from one or more candidates."""
+    """Generate one compact unified intelligence brief."""
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY is missing.")
 
@@ -59,36 +59,37 @@ RESEARCH CANDIDATES
 
 TASK
 ====
-Create ONE Telegram feed message from the strongest distinct developments above.
-Do not write one mini-report per source. Do not repeat the same idea, story, mechanism,
-question, or wording across sections.
+Create ONE unified Telegram intelligence brief. Select the strongest genuinely
+crypto-specific development. Do not force unrelated stories into the same feed.
+If two developments are tightly related, they may be combined. Otherwise choose
+one strong development rather than producing scattered mini-reports.
 
-Use this compact structure:
-1. One or two strongest CONTENT OPPORTUNITIES. Each must state what could be explored
-   and why it matters.
-2. One or two RABBIT HOLES. Each must identify a deeper question or missing evidence
-   worth investigating.
+The brief MUST use exactly this structure and order:
 
-Prefer two genuinely different developments when the evidence supports it. If the
-candidates overlap, merge them and use the space for a deeper angle instead.
+SIGNAL: <the development in a few words>
+WHY: <why this is interesting or significant>
+MISS: <one detail people may miss>
+OPPORTUNITIES: 1. <specific content angle> 2. <specific content angle>
+RABBIT HOLE: 1. <specific deeper investigation>
 
-OUTPUT FORMAT
-=============
-OPP: <useful content angle and why it matters>
-RABBIT: <specific deeper investigation and why it matters>
+CONTENT OPPORTUNITIES must be actual angles, not generic titles.
+RABBIT HOLE must identify a specific unanswered question, mechanism, evidence gap,
+or implication worth investigating.
 
-Add a second OPP/RABBIT pair only if it remains useful and fits under the hard limit.
-Do not add Signal, What happened, Mechanism, Numbers, or other repeated summary sections.
+Do not repeat facts between SIGNAL, WHY, MISS, OPPORTUNITIES, and RABBIT HOLE.
+Keep each section extremely compact. If necessary, shorten the opportunity text,
+but preserve both opportunities and the rabbit hole.
 
 RULES
 =====
 - HARD LIMIT: 500 CHARACTERS TOTAL.
-- Count characters before answering.
-- Never exceed 500 characters.
-- Never truncate a sentence or bullet.
-- Dense, plain language.
+- Exactly one SIGNAL, one WHY, one MISS, two numbered OPPORTUNITIES, and one numbered RABBIT HOLE.
+- No headings other than SIGNAL, WHY, MISS, OPPORTUNITIES, RABBIT HOLE.
 - No introduction or conclusion.
-- No generic commentary.
+- No emojis.
+- No generic crypto commentary.
+- The selected development must have a clear crypto/blockchain connection.
+- Reject unrelated technology/business stories even if they appear in the research.
 - Facts must be supported by research.
 - Never invent facts.
 - Return ONLY the final feed text.
@@ -97,15 +98,15 @@ RULES
     client = Groq(api_key=GROQ_API_KEY)
     response = client.chat.completions.create(
         model=GROQ_MODEL,
-        temperature=0.45,
+        temperature=0.35,
         max_tokens=FEED_MAX_OUTPUT_TOKENS,
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "You are a sharp crypto intelligence editor. "
-                    "Produce one unified Telegram feed, never repeated sections, "
-                    "and never exceed 500 characters."
+                    "You are a sharp crypto intelligence editor. Produce one unified "
+                    "Telegram intelligence brief using the exact requested structure. "
+                    "Never exceed 500 characters."
                 ),
             },
             {"role": "user", "content": prompt},
