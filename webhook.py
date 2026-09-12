@@ -230,8 +230,13 @@ async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         research = await asyncio.to_thread(search_web, request_text, 8)
         if not research.get("results"):
-            await status.edit_text("❌ I couldn't find enough useful research for this idea.")
-            return
+            # A self-contained creative prompt must not be blocked by the research layer.
+            # Keep research when available, but allow the writer to work directly from the request.
+            research = {
+                "query": request_text,
+                "answer": "",
+                "results": [],
+            }
 
         ideas = await asyncio.to_thread(
             generate_creative_ideas,
