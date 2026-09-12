@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from research import search_web
-from writer import generate_intelligence
+from feed_writer import generate_feed_intelligence
 from niches import get_niches
 from config import RESEARCH_INTERVAL_MINUTES
 
@@ -276,9 +276,8 @@ async def generate_feed():
             }
 
             intelligence = await asyncio.to_thread(
-                generate_intelligence,
+                generate_feed_intelligence,
                 research,
-                "current crypto trend feed",
             )
 
             if intelligence:
