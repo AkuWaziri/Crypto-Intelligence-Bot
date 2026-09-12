@@ -33,7 +33,7 @@ HISTORY_FILE = Path("feed_history.json")
 HISTORY_DAYS = 14
 MAX_HISTORY_ITEMS = 500
 MAX_CANDIDATES_PER_SEARCH = 2
-MAX_FEED_ITEMS = 3
+MAX_FEED_ITEMS = 2
 
 GENERIC_TERMS = {
     "crypto", "cryptocurrency", "blockchain", "web3", "latest", "news",
@@ -209,7 +209,32 @@ def rank_trending_candidates(results, history):
         key=lambda item: item.get("trend_score", 0),
         reverse=True,
     )
-    return candidates
+
+    # Remove overlapping stories within the same cycle before they reach the
+    # writer. This prevents multiple articles about one development becoming
+    # separate feed items.
+    distinct = []
+    for candidate in candidates:
+        duplicate = False
+        for selected in distinct:
+            title_similarity = _similarity(
+                candidate.get("title", ""),
+                selected.get("title", ""),
+            )
+            content_similarity = _similarity(
+                candidate.get("content", ""),
+                selected.get("content", ""),
+            )
+            if title_similarity >= 0.50 or (
+                title_similarity >= 0.35 and content_similarity >= 0.45
+            ):
+                duplicate = True
+                break
+
+        if not duplicate:
+            distinct.append(candidate)
+
+    return distinct
 
 
 async def research_niche(niche):
@@ -264,48 +289,43 @@ async def generate_feed():
     history = prune_feed_history(load_feed_history())
     candidates = await discover_trending_research()
     ranked = rank_trending_candidates(candidates, history)
+    selected = ranked[:MAX_FEED_ITEMS]
 
-    reports = []
+    if not selected:
+        return [], history
 
-    for candidate in ranked[:MAX_FEED_ITEMS]:
-        try:
-            research = {
-                "query": "current crypto trend",
-                "answer": "",
-                "results": [candidate],
-            }
+    try:
+        intelligence = await asyncio.to_thread(
+            generate_feed_intelligence,
+            selected,
+        )
+    except Exception:
+        logger.exception("Unified trend writing failed.")
+        return [], history
 
-            intelligence = await asyncio.to_thread(
-                generate_feed_intelligence,
-                research,
-            )
+    if not intelligence:
+        return [], history
 
-            if intelligence:
-                reports.append({
-                    "report": intelligence,
-                    "candidate": candidate,
-                })
-        except Exception:
-            logger.exception(
-                "Trend writing failed for: %s",
-                candidate.get("title", "unknown"),
-            )
-
-    return reports, history
+    # One report contains the whole feed. The candidates are retained only so
+    # the exact stories shown in this message can be recorded in history.
+    return [{
+        "report": intelligence,
+        "candidates": selected,
+    }], history
 
 
 def record_fed_items(history, reports):
     now = _utc_now().isoformat()
 
     for item in reports:
-        candidate = item.get("candidate", {})
-        history.append({
-            "fingerprint": _story_fingerprint(candidate),
-            "title": candidate.get("title", ""),
-            "content": candidate.get("content", "")[:1200],
-            "url": candidate.get("url", ""),
-            "fed_at": now,
-        })
+        for candidate in item.get("candidates", []):
+            history.append({
+                "fingerprint": _story_fingerprint(candidate),
+                "title": candidate.get("title", ""),
+                "content": candidate.get("content", "")[:1200],
+                "url": candidate.get("url", ""),
+                "fed_at": now,
+            })
 
     save_feed_history(history)
 
@@ -323,17 +343,23 @@ async def scheduler_loop(send_message):
             reports, history = await generate_feed()
 
             if reports:
-                await send_message(
+                report = reports[0]["report"]
+                message = (
                     "🧠 <b>CRYPTO INTELLIGENCE FEED</b>\n\n"
-                    "Current developments worth looking at:"
+                    f"{report}"
                 )
 
-                for item in reports:
-                    report = item["report"]
-                    if len(report) > 3900:
-                        report = report[:3900] + "\n\n[truncated]"
-                    await send_message(report)
+                # Keep the complete Telegram message compact as well. The
+                # writer is capped at 500 characters; this only protects the
+                # header from pushing the final message beyond that target.
+                if len(message) > 500:
+                    available = 500 - len("🧠 CRYPTO INTELLIGENCE FEED\n\n")
+                    message = (
+                        "🧠 <b>CRYPTO INTELLIGENCE FEED</b>\n\n"
+                        + report[:max(0, available)].rstrip(" ,;:-")
+                    )
 
+                await send_message(message)
                 record_fed_items(history, reports)
             else:
                 logger.info(
