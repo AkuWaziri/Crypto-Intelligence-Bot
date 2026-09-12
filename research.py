@@ -249,6 +249,26 @@ def classify_query_angle(query):
     return "general"
 
 
+def build_visual_reference_result(query):
+    """Keep image-grounded creative requests usable when web search has no hit."""
+    visual_marker = "VISUAL EVIDENCE FROM IMAGE:"
+    if visual_marker not in query:
+        return None
+
+    visual_context = query.split(visual_marker, 1)[1].strip()
+    if not visual_context:
+        return None
+
+    return normalize_result(
+        "User-provided image reference",
+        "image://attached-reference",
+        "USER-PROVIDED VISUAL REFERENCE — NOT EXTERNAL RESEARCH.\n"
+        "Use this only as creative inspiration and visual evidence.\n\n"
+        + visual_context,
+        "visual_reference",
+    )
+
+
 def search_web(query: str, max_results: int = MAX_RESEARCH_RESULTS):
     query = str(query or "").strip()
     if not query:
@@ -289,6 +309,13 @@ def search_web(query: str, max_results: int = MAX_RESEARCH_RESULTS):
             logger.exception("Bing News fallback failed")
 
     all_results = deduplicate_results(all_results)
+
+    if not all_results and allow_targeted:
+        visual_reference = build_visual_reference_result(query)
+        if visual_reference:
+            all_results = [visual_reference]
+            logger.info("Using attached image as the creative reference because web research returned no results.")
+
     ranked = rank_results(all_results, query)
     ranked = diversify_results(ranked, limit=30)
 
