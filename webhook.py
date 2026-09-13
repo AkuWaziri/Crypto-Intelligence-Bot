@@ -27,6 +27,7 @@ from writer import (
     generate_creative_ideas,
 )
 from vision import analyze_image
+from image_generator import generate_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /idea — discover creative content ideas
 /ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
+/generate &lt;prompt&gt; — generate a comic visual
 /addniche &lt;niche&gt; — add a research niche
 
 <b>Image support</b>
@@ -83,6 +85,8 @@ The bot will read the image, combine it with your instruction, research what mat
 /create break down Binance Agent OS
 /create give me a contrarian crypto idea
 /create make a guide to using Base
+
+/generate a trader watching a massive token unlock hit the market
 """
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -277,6 +281,30 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text(f"❌ Create failed.\n\n{exc}")
 
+async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+    if not context.args:
+        await update.message.reply_text(
+            "Usage:\n/generate <prompt>\n\n"
+            "Example:\n"
+            "/generate a trader watching a massive token unlock hit the market"
+        )
+        return
+
+    prompt = " ".join(context.args).strip()
+    status = await update.message.reply_text("🎨 Generating comic visual...")
+    try:
+        image_bytes = await asyncio.to_thread(generate_image, prompt)
+        await status.delete()
+        await update.message.reply_photo(photo=image_bytes)
+    except Exception as exc:
+        logger.exception("Image generation failed.")
+        try:
+            await status.edit_text(f"❌ Image generation failed.\n\n{exc}")
+        except Exception:
+            await update.message.reply_text(f"❌ Image generation failed.\n\n{exc}")
+
 async def send_message(update: Update, text: str):
     if not update.message or not text:
         return
@@ -402,6 +430,7 @@ def setup_handlers():
     telegram_app.add_handler(CommandHandler("idea", idea_command))
     telegram_app.add_handler(CommandHandler("ideas", ideas_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
+    telegram_app.add_handler(CommandHandler("generate", generate_command))
     telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
     telegram_app.add_handler(
         MessageHandler(
