@@ -2,12 +2,13 @@ import re
 
 MAX_RESEARCH_CHARACTERS = 500
 
-# Deliberately give the useful creative sections most of the budget.
+# Keep the factual sections tight and give most of the 500-character budget
+# to the actionable creative sections.
 SECTION_LIMITS = {
-    "signal": 65,
-    "why": 80,
-    "angles": 200,
-    "rabbit": 100,
+    "signal": 45,
+    "why": 55,
+    "angles": 210,
+    "rabbit": 125,
 }
 
 
@@ -107,7 +108,8 @@ def format_research_output(text):
         ],
     )
 
-    # If the model already used the new format, this simply normalizes it.
+    # Keep SIGNAL and WHY IT MATTERS concise so CONTENT ANGLE and RABBIT HOLE
+    # retain the largest share of the character budget.
     signal = _shorten(signal, SECTION_LIMITS["signal"])
     why = _shorten(why, SECTION_LIMITS["why"])
     angles = _shorten(
@@ -126,8 +128,8 @@ def format_research_output(text):
         f"RABBIT HOLE: {rabbit}"
     ).strip()
 
-    # Final hard guard. Content sections are intentionally shortened first,
-    # while keeping SIGNAL and WHY concise and readable.
+    # Final hard guard. Shorten the larger creative sections first while
+    # preserving the concise signal and significance sections.
     if len(output) <= MAX_RESEARCH_CHARACTERS:
         return output
 
