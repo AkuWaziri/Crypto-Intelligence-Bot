@@ -4,6 +4,7 @@ from groq import Groq
 
 from config import GROQ_API_KEY, GROQ_MODEL
 from writer import build_research_text, load_writer_profile
+from research_output import format_research_output
 
 FEED_MAX_OUTPUT_TOKENS = 300
 FEED_MAX_CHARACTERS = 500
@@ -67,24 +68,32 @@ one strong development rather than producing scattered mini-reports.
 The brief MUST use exactly this structure and order:
 
 SIGNAL: <the development in a few words>
-WHY: <why this is interesting or significant>
-MISS: <one detail people may miss>
-OPPORTUNITIES: 1. <specific content angle> 2. <specific content angle>
+WHY IT MATTERS: <why this is interesting or significant>
+CONTENT ANGLE: 1. <specific content angle> 2. <specific content angle>
 RABBIT HOLE: 1. <specific deeper investigation>
 
-CONTENT OPPORTUNITIES must be actual angles, not generic titles.
-RABBIT HOLE must identify a specific unanswered question, mechanism, evidence gap,
-or implication worth investigating.
+CONTENT ANGLE is the main creative value of the feed. Give it concrete,
+content-ready angles, not generic titles. Each angle should expose a different
+way to explain, question, compare, test, or frame the development.
 
-Do not repeat facts between SIGNAL, WHY, MISS, OPPORTUNITIES, and RABBIT HOLE.
-Keep each section extremely compact. If necessary, shorten the opportunity text,
-but preserve both opportunities and the rabbit hole.
+RABBIT HOLE is the deeper investigation worth pursuing next. Make it a specific
+unanswered question, mechanism, evidence gap, dependency, incentive, or implication.
+It should be substantially more useful than a generic "research more" suggestion.
+
+Budget the 500-character limit deliberately:
+- SIGNAL: concise
+- WHY IT MATTERS: concise
+- CONTENT ANGLE: use the largest share of the available space
+- RABBIT HOLE: use the second-largest share
+
+Do not repeat facts between sections.
 
 RULES
 =====
 - HARD LIMIT: 500 CHARACTERS TOTAL.
-- Exactly one SIGNAL, one WHY, one MISS, two numbered OPPORTUNITIES, and one numbered RABBIT HOLE.
-- No headings other than SIGNAL, WHY, MISS, OPPORTUNITIES, RABBIT HOLE.
+- Exactly one SIGNAL, one WHY IT MATTERS, two numbered CONTENT ANGLE items,
+  and one numbered RABBIT HOLE.
+- No headings other than SIGNAL, WHY IT MATTERS, CONTENT ANGLE, RABBIT HOLE.
 - No introduction or conclusion.
 - No emojis.
 - No generic crypto commentary.
@@ -113,4 +122,6 @@ RULES
         ],
     )
 
-    return _fit_feed(response.choices[0].message.content or "")
+    return format_research_output(
+        response.choices[0].message.content or ""
+    )
