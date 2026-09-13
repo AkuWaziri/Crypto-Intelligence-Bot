@@ -19,6 +19,7 @@ from telegram.ext import (
 from config import TELEGRAM_BOT_TOKEN
 from niches import get_niches, add_niche
 from research import search_web
+from research_output import format_research_output
 from writer import (
     generate_intelligence,
     generate_content,
@@ -136,6 +137,7 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status.edit_text("❌ No useful crypto/Web3 results found.")
             return
         intelligence = await asyncio.to_thread(generate_intelligence, research, "manual research")
+        intelligence = format_research_output(intelligence)
         await status.delete()
         await send_message(update, intelligence)
     except Exception as exc:
@@ -341,6 +343,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await status.edit_text("❌ No useful crypto/Web3 research found from the image and request.")
                 return
             intelligence = await asyncio.to_thread(generate_intelligence, research, "image-assisted manual research")
+            intelligence = format_research_output(intelligence)
             await status.delete()
             await send_message(update, intelligence)
             return
@@ -468,7 +471,7 @@ async def shutdown():
     try:
         await telegram_app.bot.delete_webhook()
     except Exception:
-        logger.exception("Failed to delete Telegram webhook.")
+        logger.exception("Failed to delete webhook.")
     try:
         await telegram_app.stop()
     except Exception:
