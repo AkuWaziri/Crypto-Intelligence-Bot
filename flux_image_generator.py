@@ -3,9 +3,17 @@ import os
 
 from huggingface_hub import InferenceClient
 
-from image_generator import BASE_PROMPT
-
 FLUX_MODEL = os.getenv("FLUX_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell")
+
+BASE_PROMPT = """
+New comic visual on a grey #3e3e40 outer-layer background.
+Use dynamic colours for the artwork comic panels; choose any palette that fits the subject and mood.
+The comic panel should stretch to the extreme edges of the outer-layer background, with no unnecessary margins inside the outer layer.
+Colourize the art when it fits the comic and improves the visual storytelling.
+Hand-drawn digital comic, bold, clean hand-drawn digital comic, bold thick lines, expressive characters, strong readable composition, polished comic illustration.
+Add @akuwazir at the bottom-right side in small black handwritten writing.
+Square 1:1 composition.
+""".strip()
 
 
 def generate_flux_image(user_prompt):
