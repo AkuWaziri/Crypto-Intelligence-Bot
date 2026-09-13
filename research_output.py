@@ -2,7 +2,7 @@ import re
 
 MAX_RESEARCH_CHARACTERS = 500
 
-# Keep the factual sections tight and give most of the 500-character budget
+# Keep factual sections tight and give most of the 500-character budget
 # to the actionable creative sections.
 SECTION_LIMITS = {
     "signal": 45,
@@ -78,24 +78,32 @@ def _number_rabbit(text):
 
 
 def format_research_output(text):
-    """Normalize manual and scheduled research into the 500-character UI format."""
+    """Force manual /research output into one fixed four-section format."""
     raw = str(text or "").strip()
     if not raw:
         return ""
 
-    signal = _extract(raw, ["SIGNAL"])
+    signal = _extract(
+        raw,
+        [
+            "SIGNAL",
+            "WHAT ACTUALLY HAPPENED",
+        ],
+    )
     why = _extract(
         raw,
         [
             "WHY IT MATTERS",
             "WHY",
             "WHY IT IS INTERESTING",
+            "THE DETAIL PEOPLE MAY MISS",
         ],
     )
     angles = _extract(
         raw,
         [
             "CONTENT ANGLE",
+            "CONTENT ANGLES",
             "CONTENT OPPORTUNITIES",
             "OPPORTUNITIES",
         ],
@@ -108,8 +116,6 @@ def format_research_output(text):
         ],
     )
 
-    # Keep SIGNAL and WHY IT MATTERS concise so CONTENT ANGLE and RABBIT HOLE
-    # retain the largest share of the character budget.
     signal = _shorten(signal, SECTION_LIMITS["signal"])
     why = _shorten(why, SECTION_LIMITS["why"])
     angles = _shorten(
@@ -128,8 +134,7 @@ def format_research_output(text):
         f"RABBIT HOLE: {rabbit}"
     ).strip()
 
-    # Final hard guard. Shorten the larger creative sections first while
-    # preserving the concise signal and significance sections.
+    # Hard 500-character guard. Trim the larger creative sections first.
     if len(output) <= MAX_RESEARCH_CHARACTERS:
         return output
 
