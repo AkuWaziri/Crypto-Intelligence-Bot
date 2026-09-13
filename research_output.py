@@ -2,8 +2,6 @@ import re
 
 MAX_RESEARCH_CHARACTERS = 700
 
-# Keep factual sections tight and give most of the 700-character budget
-# to the actionable creative sections.
 SECTION_LIMITS = {
     "signal": 45,
     "why": 55,
@@ -78,6 +76,89 @@ def _number_rabbit(text):
     return "1. " + text.strip()
 
 
+def _fallback_angles(raw, why, miss):
+    mechanism = _extract(raw, ["THE MECHANISM", "MECHANISM"])
+    changed = _extract(raw, ["WHAT CHANGED", "THE NUMBERS"])
+    incentive = _extract(raw, ["INCENTIVE"])
+
+    candidates = []
+
+    if mechanism:
+        candidates.append(
+            "Explain the mechanism behind the event: " + mechanism
+        )
+
+    if changed:
+        candidates.append(
+            "Explore what changed and why it matters: " + changed
+        )
+
+    if incentive:
+        candidates.append(
+            "Break down the incentive driving the behavior: " + incentive
+        )
+
+    if why:
+        candidates.append(
+            "Challenge the obvious narrative: " + why
+        )
+
+    if miss:
+        candidates.append(
+            "Investigate the overlooked detail: " + miss
+        )
+
+    if not candidates:
+        return ""
+
+    return "  ".join(
+        f"{index}. {item}"
+        for index, item in enumerate(candidates[:2], start=1)
+    )
+
+
+def _fallback_rabbit(raw, why, miss):
+    unclear = _extract(raw, ["WHAT IS UNCLEAR"])
+    mechanism = _extract(raw, ["THE MECHANISM", "MECHANISM"])
+    wrong = _extract(raw, ["WHAT PEOPLE MAY BE GETTING WRONG"])
+
+    candidates = []
+
+    if unclear:
+        candidates.append(
+            "What is still unclear here, and what evidence would confirm it? "
+            + unclear
+        )
+
+    if mechanism:
+        candidates.append(
+            "What deeper mechanism could explain this? " + mechanism
+        )
+
+    if wrong:
+        candidates.append(
+            "What is the market misunderstanding? " + wrong
+        )
+
+    if miss:
+        candidates.append(
+            "What does the overlooked detail lead to? " + miss
+        )
+
+    if why:
+        candidates.append(
+            "What happens if this narrative is wrong? " + why
+        )
+
+    if not candidates:
+        return ""
+
+    return "  ".join(
+        f"{index}. {item}"
+        for index, item in enumerate(candidates[:2], start=1)
+    )
+
+
 def format_research_output(text):
     """Force manual /research output into one fixed five-section format."""
     raw = str(text or "").strip()
@@ -124,6 +205,12 @@ def format_research_output(text):
             "THE DETAIL PEOPLE MAY MISS",
         ],
     )
+
+    if not angles:
+        angles = _fallback_angles(raw, why, miss)
+
+    if not rabbit:
+        rabbit = _fallback_rabbit(raw, why, miss)
 
     signal = _shorten(signal, SECTION_LIMITS["signal"])
     why = _shorten(why, SECTION_LIMITS["why"])
