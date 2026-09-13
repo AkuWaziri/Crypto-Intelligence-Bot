@@ -55,7 +55,6 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
 /addniche &lt;niche&gt; — add a research niche
-/feed — run a fresh intelligence feed now
 
 <b>Image support</b>
 
@@ -278,26 +277,6 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text(f"❌ Create failed.\n\n{exc}")
 
-async def feed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    status = await update.message.reply_text("🧠 Running a fresh intelligence feed...")
-    try:
-        from scheduler import generate_feed
-        reports = await generate_feed()
-        await status.delete()
-        if not reports:
-            await update.message.reply_text("No useful discoveries found this cycle.")
-            return
-        for report in reports:
-            await send_message(update, report)
-    except Exception as exc:
-        logger.exception("Manual feed failed.")
-        try:
-            await status.edit_text(f"❌ Feed failed.\n\n{exc}")
-        except Exception:
-            await update.message.reply_text(f"❌ Feed failed.\n\n{exc}")
-
 async def send_message(update: Update, text: str):
     if not update.message or not text:
         return
@@ -424,7 +403,6 @@ def setup_handlers():
     telegram_app.add_handler(CommandHandler("ideas", ideas_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
     telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
-    telegram_app.add_handler(CommandHandler("feed", feed_command))
     telegram_app.add_handler(
         MessageHandler(
             filters.PHOTO & filters.CaptionRegex(
