@@ -1,5 +1,6 @@
 python-telegram-bot>=22.0
 google-genai>=1.0.0
+huggingface-hub>=0.30.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 groq>=0.30.0
