@@ -133,8 +133,17 @@ def is_previously_fed(result, history):
     fingerprint = _story_fingerprint(result)
     title = result.get("title", "")
     content = result.get("content", "")
+    url = str(result.get("url", "")).strip().lower()
 
     for old in history:
+        # A stable source URL is the strongest duplicate signal. Headlines and
+        # article bodies can change between crawls even when the underlying
+        # story is identical, so never re-feed the same URL during the history
+        # window.
+        old_url = str(old.get("url", "")).strip().lower()
+        if url and old_url and url == old_url:
+            return True
+
         if old.get("fingerprint") == fingerprint:
             return True
 
