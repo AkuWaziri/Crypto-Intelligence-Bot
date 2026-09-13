@@ -18,14 +18,27 @@ Square 1:1 composition.
 
 
 def generate_image(user_prompt):
-    """Generate a square comic visual using the fixed brand style plus the user's prompt."""
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is not configured.")
-
+    """Generate a comic visual. Prefix with 'flux' to use FLUX; otherwise use Gemini."""
     user_prompt = str(user_prompt or "").strip()
     if not user_prompt:
         raise RuntimeError("A generation prompt is required.")
+
+    parts = user_prompt.split(maxsplit=1)
+    provider = parts[0].lower() if parts else ""
+    if provider == "flux":
+        if len(parts) == 1 or not parts[1].strip():
+            raise RuntimeError("A generation prompt is required after 'flux'.")
+        from flux_image_generator import generate_flux_image
+        return generate_flux_image(parts[1].strip())
+
+    if provider == "gemini":
+        if len(parts) == 1 or not parts[1].strip():
+            raise RuntimeError("A generation prompt is required after 'gemini'.")
+        user_prompt = parts[1].strip()
+
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured.")
 
     prompt = f"""
 {BASE_PROMPT}
