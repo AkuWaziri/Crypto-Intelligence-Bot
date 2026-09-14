@@ -15,6 +15,7 @@ from niches import get_niches, add_niche
 from research import search_web
 from research_output import format_research_output
 from writer import generate_intelligence, generate_content, generate_ideas, generate_creative_ideas
+from vision import analyze_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
