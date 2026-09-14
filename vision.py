@@ -11,7 +11,7 @@ VISION_MODEL = os.getenv(
 
 
 def analyze_image(image_bytes, user_instruction=""):
-    """Turn a Telegram image into a factual visual context packet."""
+    """Turn a Telegram image into a detailed factual visual context packet."""
     if not image_bytes:
         return ""
 
@@ -22,24 +22,36 @@ def analyze_image(image_bytes, user_instruction=""):
     encoded = base64.b64encode(image_bytes).decode("utf-8")
 
     prompt = f"""
-Analyze this image for a crypto intelligence/content workflow.
+You are the visual evidence extractor for a crypto/Web3 intelligence system.
 
-Identify only what is actually visible or clearly readable.
-Extract:
-- visible text, headlines, usernames, protocol names, token names, numbers, dates and URLs
-- charts, dashboards, screenshots, posts, memes, announcements or interfaces
-- important visual relationships or unusual details
-- what the image appears to be about
-- uncertainty where text/details cannot be read reliably
+The attached image is the PRIMARY SOURCE. Inspect the actual pixels carefully.
+Do not describe it merely as "a screenshot", "a composite image", "a CoinGecko image", or "a user-provided image".
+Extract the substantive information visible inside the image.
 
-Do not invent missing information.
-Do not assume a claim in the image is true.
-Treat the image as evidence to investigate, not as verified fact.
+Read and report, where visible:
+- exact text, headlines, captions, usernames and account names
+- protocol, project, token and company names
+- prices, market caps, volumes, percentages, dates and other numbers
+- chart labels, axes, time ranges, trends, candles, lines and notable movements
+- rankings, tables, balances, transaction data and dashboard metrics
+- URLs, contract addresses, tickers and identifiers
+- claims, announcements, quotes and calls to action shown in the image
+- relationships between the visible elements
+- unusual, surprising or potentially important details
+
+For charts or dashboards, explain the actual visible data and direction of movement.
+For screenshots of posts or announcements, transcribe the meaningful text and identify who/what is making the claim.
+For multiple panels, inspect each panel and connect the information when appropriate.
+
+Do not invent text that cannot be read.
+Do not treat a visible claim as verified fact.
+Clearly mark anything unreadable or uncertain.
 
 User instruction:
-{user_instruction or 'Determine what is useful in this image for the requested crypto task.'}
+{user_instruction or 'Identify what this image actually shows and extract the strongest evidence that should be researched for crypto/Web3 intelligence.'}
 
-Return a concise factual visual context packet that another research/writing model can use.
+Return a concise but information-dense visual evidence packet.
+The next model will use your output as evidence, so prioritize concrete facts over generic description.
 """.strip()
 
     client = Groq(api_key=api_key)
@@ -60,7 +72,9 @@ Return a concise factual visual context packet that another research/writing mod
                 ],
             }
         ],
-        max_completion_tokens=900,
+        reasoning_effort="none",
+        temperature=0.2,
+        max_completion_tokens=1200,
     )
 
     return (
