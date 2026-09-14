@@ -42,7 +42,6 @@ Prioritize a strong comic composition, expressive characters and clear visual st
     image = client.text_to_image(
         prompt,
         model=FLUX_MODEL,
-        provider="auto",
     )
 
     if image is None:
