@@ -15,7 +15,6 @@ from niches import get_niches, add_niche
 from research import search_web
 from research_output import format_research_output
 from writer import generate_intelligence, generate_content, generate_ideas, generate_creative_ideas
-from vision import analyze_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,7 +33,6 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
-/analyze — analyze a crypto/Web3 image
 /idea — discover creative content ideas
 /ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
@@ -42,13 +40,8 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 
 <b>Image support</b>
 
-Attach an image with /analyze, /research, /idea, /ideas or /create in the caption.
+Attach an image with /research, /idea, /ideas or /create in the caption.
 The bot will read the image, combine it with your instruction, research what matters and then run the requested logic.
-
-<b>Analyze</b>
-
-/analyze + image — extract visible evidence, verify what matters and return crypto intelligence
-/analyze + image + question — focus the analysis on your question
 
 <b>Creative Ideas</b>
 
@@ -60,10 +53,6 @@ The bot will read the image, combine it with your instruction, research what mat
 /research AI agents
 /research crypto payments
 /research suspicious smart contracts
-
-/analyze + screenshot of a token chart
-/analyze + screenshot of a crypto announcement
-/analyze + tweet screenshot + "is this actually important?"
 
 /idea give meme Elon replied to an unknown account and its token exploded
 /idea give me post ideas Arc mainnet is on September 16 and what investors or degens should do before launch
@@ -144,44 +133,6 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status.edit_text(f"❌ Research failed.\n\n{exc}")
         except Exception:
             await update.message.reply_text(f"❌ Research failed.\n\n{exc}")
-
-async def analyze_image_request(update: Update, image_bytes: bytes, user_instruction: str = ""):
-    if not update.message:
-        return
-    status = await update.message.reply_text("🧠 Analyzing the image and verifying what matters...")
-    try:
-        visual_context = await asyncio.to_thread(analyze_image, image_bytes, user_instruction)
-        if not visual_context:
-            raise RuntimeError("The image could not be understood.")
-        focus = user_instruction or "Determine what is important, unusual or useful for crypto/Web3 content and intelligence."
-        combined_request = (
-            f"USER REQUEST:\n{focus}\n\n"
-            f"VISUAL EVIDENCE FROM IMAGE:\n{visual_context}\n\n"
-            "Treat the visual evidence as evidence, not verified fact. Verify factual claims through research."
-        )
-        research = await asyncio.to_thread(search_web, combined_request)
-        if not research.get("results"):
-            await status.edit_text("❌ No useful crypto/Web3 research found from the image.")
-            return
-        intelligence = await asyncio.to_thread(generate_intelligence, research, "image analysis")
-        intelligence = format_research_output(intelligence)
-        await status.delete()
-        await send_message(update, intelligence)
-    except Exception as exc:
-        logger.exception("Image analysis failed.")
-        try:
-            await status.edit_text(f"❌ Image analysis failed.\n\n{exc}")
-        except Exception:
-            await update.message.reply_text(f"❌ Image analysis failed.\n\n{exc}")
-
-async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    await update.message.reply_text(
-        "Attach a crypto/Web3 image with /analyze in the caption.\n\n"
-        "You can optionally add a question after /analyze.\n\n"
-        "Example:\n/analyze is this announcement actually important?"
-    )
 
 async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -282,7 +233,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message or not message.photo or not message.caption:
         return
     caption = message.caption.strip()
-    match = re.match(r"^/(analyze|research|idea|ideas|create)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
+    match = re.match(r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
     if not match:
         return
     command = match.group(1).lower()
@@ -291,9 +242,6 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo = message.photo[-1]
         telegram_file = await photo.get_file()
         image_bytes = bytes(await telegram_file.download_as_bytearray())
-        if command == "analyze":
-            await analyze_image_request(update, image_bytes, user_instruction)
-            return
         status = await message.reply_text("🖼️ Reading the image and understanding your request...")
         visual_context = await asyncio.to_thread(analyze_image, image_bytes, user_instruction)
         if not visual_context:
@@ -356,12 +304,11 @@ def setup_handlers():
     telegram_app.add_handler(CommandHandler("help", help_command))
     telegram_app.add_handler(CommandHandler("niches", niches_command))
     telegram_app.add_handler(CommandHandler("research", research_command))
-    telegram_app.add_handler(CommandHandler("analyze", analyze_command))
     telegram_app.add_handler(CommandHandler("idea", idea_command))
     telegram_app.add_handler(CommandHandler("ideas", ideas_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
     telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
-    telegram_app.add_handler(MessageHandler(filters.PHOTO & filters.CaptionRegex(r"^/(analyze|research|idea|ideas|create)(?:@\w+)?(?:\s|$)"), image_command))
+    telegram_app.add_handler(MessageHandler(filters.PHOTO & filters.CaptionRegex(r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s|$)"), image_command))
 
 setup_handlers()
 
@@ -376,7 +323,7 @@ def telegram_webhook():
         return jsonify({"status": "ignored"})
     try:
         update = Update.de_json(data, telegram_app.bot)
-        telegram_app.update_queue.put_nowait(update)
+        telegram_app.create_task(telegram_app.process_update(update))
         return jsonify({"status": "ok"})
     except Exception as exc:
         logger.exception("Failed to queue Telegram update.")
@@ -394,10 +341,6 @@ async def startup():
         logger.info("RENDER_EXTERNAL_URL not set. Running without webhook registration for local testing.")
 
 async def shutdown():
-    try:
-        await telegram_app.bot.delete_webhook()
-    except Exception:
-        logger.exception("Failed to delete webhook.")
     try:
         await telegram_app.stop()
     except Exception:
