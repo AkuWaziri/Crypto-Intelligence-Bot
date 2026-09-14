@@ -8,38 +8,20 @@ from asgiref.wsgi import WsgiToAsgi
 from flask import Flask, request, jsonify
 
 from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
 from config import TELEGRAM_BOT_TOKEN
 from niches import get_niches, add_niche
 from research import search_web
 from research_output import format_research_output
-from writer import (
-    generate_intelligence,
-    generate_content,
-    generate_ideas,
-    generate_creative_ideas,
-)
+from writer import generate_intelligence, generate_content, generate_ideas, generate_creative_ideas
 from vision import analyze_image
-from image_generator import generate_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-telegram_app = (
-    Application.builder()
-    .token(TELEGRAM_BOT_TOKEN)
-    .updater(None)
-    .build()
-)
+telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
 
 HELP_TEXT = """
 🧠 <b>Crypto Intelligence Bot</b>
@@ -52,16 +34,21 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /help — show commands
 /niches — show research niches
 /research &lt;topic&gt; — research anything
+/analyze — analyze a crypto/Web3 image
 /idea — discover creative content ideas
 /ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
-/generate &lt;prompt&gt; — generate a comic visual
 /addniche &lt;niche&gt; — add a research niche
 
 <b>Image support</b>
 
-Attach an image with /research, /idea, /ideas or /create in the caption.
-The bot will read the image, combine it with your instruction, research what matters and then run the normal command logic.
+Attach an image with /analyze, /research, /idea, /ideas or /create in the caption.
+The bot will read the image, combine it with your instruction, research what matters and then run the requested logic.
+
+<b>Analyze</b>
+
+/analyze + image — extract visible evidence, verify what matters and return crypto intelligence
+/analyze + image + question — focus the analysis on your question
 
 <b>Creative Ideas</b>
 
@@ -74,6 +61,10 @@ The bot will read the image, combine it with your instruction, research what mat
 /research crypto payments
 /research suspicious smart contracts
 
+/analyze + screenshot of a token chart
+/analyze + screenshot of a crypto announcement
+/analyze + tweet screenshot + "is this actually important?"
+
 /idea give meme Elon replied to an unknown account and its token exploded
 /idea give me post ideas Arc mainnet is on September 16 and what investors or degens should do before launch
 /idea give me post ideas stablecoins
@@ -85,9 +76,13 @@ The bot will read the image, combine it with your instruction, research what mat
 /create break down Binance Agent OS
 /create give me a contrarian crypto idea
 /create make a guide to using Base
-
-/generate a trader watching a massive token unlock hit the market
 """
+
+async def send_message(update: Update, text: str):
+    if not update.message or not text:
+        return
+    for start in range(0, len(text), 3900):
+        await update.message.reply_text(text[start:start + 3900])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
@@ -150,18 +145,49 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text(f"❌ Research failed.\n\n{exc}")
 
+async def analyze_image_request(update: Update, image_bytes: bytes, user_instruction: str = ""):
+    if not update.message:
+        return
+    status = await update.message.reply_text("🧠 Analyzing the image and verifying what matters...")
+    try:
+        visual_context = await asyncio.to_thread(analyze_image, image_bytes, user_instruction)
+        if not visual_context:
+            raise RuntimeError("The image could not be understood.")
+        focus = user_instruction or "Determine what is important, unusual or useful for crypto/Web3 content and intelligence."
+        combined_request = (
+            f"USER REQUEST:\n{focus}\n\n"
+            f"VISUAL EVIDENCE FROM IMAGE:\n{visual_context}\n\n"
+            "Treat the visual evidence as evidence, not verified fact. Verify factual claims through research."
+        )
+        research = await asyncio.to_thread(search_web, combined_request)
+        if not research.get("results"):
+            await status.edit_text("❌ No useful crypto/Web3 research found from the image.")
+            return
+        intelligence = await asyncio.to_thread(generate_intelligence, research, "image analysis")
+        intelligence = format_research_output(intelligence)
+        await status.delete()
+        await send_message(update, intelligence)
+    except Exception as exc:
+        logger.exception("Image analysis failed.")
+        try:
+            await status.edit_text(f"❌ Image analysis failed.\n\n{exc}")
+        except Exception:
+            await update.message.reply_text(f"❌ Image analysis failed.\n\n{exc}")
+
+async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+    await update.message.reply_text(
+        "Attach a crypto/Web3 image with /analyze in the caption.\n\n"
+        "You can optionally add a question after /analyze.\n\n"
+        "Example:\n/analyze is this announcement actually important?"
+    )
+
 async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
     if not context.args:
-        await update.message.reply_text(
-            "Usage:\n\n"
-            "/idea give meme <situation>\n"
-            "/idea give me post ideas <subject>\n\n"
-            "Examples:\n"
-            "/idea give meme Elon replied to an unknown account and its token exploded\n\n"
-            "/idea give me post ideas Arc mainnet is on September 16 and what investors should do before launch"
-        )
+        await update.message.reply_text("Usage:\n\n/idea give meme <situation>\n/idea give me post ideas <subject>")
         return
     raw_request = " ".join(context.args).strip()
     lower_request = raw_request.lower()
@@ -180,21 +206,12 @@ async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         mode = "post"
         request_text = raw_request[len("post ideas"):].strip()
     if not mode:
-        await update.message.reply_text(
-            "I need to know what kind of idea you want.\n\n"
-            "Use:\n"
-            "/idea give meme <situation>\n"
-            "/idea give me post ideas <subject>"
-        )
+        await update.message.reply_text("I need to know what kind of idea you want.\n\nUse:\n/idea give meme <situation>\n/idea give me post ideas <subject>")
         return
     if not request_text:
         await update.message.reply_text("Give me the situation or subject after the command.")
         return
-    status = await update.message.reply_text(
-        "🎨 Researching the situation and exploring meme possibilities..."
-        if mode == "meme"
-        else "💡 Researching the subject and exploring creative directions..."
-    )
+    status = await update.message.reply_text("🎨 Researching the situation and exploring meme possibilities..." if mode == "meme" else "💡 Researching the subject and exploring creative directions...")
     try:
         research = await asyncio.to_thread(search_web, request_text, 8)
         if not research.get("results"):
@@ -215,18 +232,7 @@ async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
     if not context.args:
-        await update.message.reply_text(
-            "Usage:\n"
-            "/ideas <topic or subject>\n\n"
-            "Examples:\n"
-            "/ideas on Base\n"
-            "/ideas on Arc\n"
-            "/ideas on Uniswap\n"
-            "/ideas on the Plum hack\n"
-            "/ideas on stablecoins\n"
-            "/ideas on Arc agentic economy\n"
-            '/ideas on "we are so back"'
-        )
+        await update.message.reply_text("Usage:\n/ideas <topic or subject>")
         return
     request_text = " ".join(context.args).strip()
     status = await update.message.reply_text(f"💡 Researching ideas:\n{request_text}")
@@ -251,17 +257,7 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
     if not context.args:
-        await update.message.reply_text(
-            "Usage:\n"
-            "/create <what you want to create>\n\n"
-            "Examples:\n"
-            "/create Crypto GM post\n"
-            "/create write a GM post for today\n"
-            "/create explain AI agents simply\n"
-            "/create break down Binance Agent OS\n"
-            "/create give me a contrarian crypto idea\n"
-            "/create make a guide to using Base"
-        )
+        await update.message.reply_text("Usage:\n/create <what you want to create>")
         return
     request_text = " ".join(context.args).strip()
     status = await update.message.reply_text("✍️ Researching and creating your content...")
@@ -281,129 +277,64 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text(f"❌ Create failed.\n\n{exc}")
 
-async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    if not context.args:
-        await update.message.reply_text(
-            "Usage:\n/generate <prompt>\n\n"
-            "Example:\n"
-            "/generate a trader watching a massive token unlock hit the market"
-        )
-        return
-
-    prompt = " ".join(context.args).strip()
-    status = await update.message.reply_text("🎨 Generating comic visual...")
-    try:
-        image_bytes = await asyncio.to_thread(generate_image, prompt)
-        await status.delete()
-        await update.message.reply_photo(photo=image_bytes)
-    except Exception as exc:
-        logger.exception("Image generation failed.")
-        try:
-            await status.edit_text(f"❌ Image generation failed.\n\n{exc}")
-        except Exception:
-            await update.message.reply_text(f"❌ Image generation failed.\n\n{exc}")
-
-async def send_message(update: Update, text: str):
-    if not update.message or not text:
-        return
-    max_length = 3900
-    for start in range(0, len(text), max_length):
-        await update.message.reply_text(text[start:start + max_length])
-
 async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /research, /idea, /ideas and /create inside a photo caption."""
     message = update.message
     if not message or not message.photo or not message.caption:
         return
     caption = message.caption.strip()
-    match = re.match(r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
+    match = re.match(r"^/(analyze|research|idea|ideas|create)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
     if not match:
         return
     command = match.group(1).lower()
     user_instruction = (match.group(2) or "").strip()
-    status = await message.reply_text("🖼️ Reading the image and understanding your request...")
     try:
         photo = message.photo[-1]
         telegram_file = await photo.get_file()
         image_bytes = bytes(await telegram_file.download_as_bytearray())
+        if command == "analyze":
+            await analyze_image_request(update, image_bytes, user_instruction)
+            return
+        status = await message.reply_text("🖼️ Reading the image and understanding your request...")
         visual_context = await asyncio.to_thread(analyze_image, image_bytes, user_instruction)
         if not visual_context:
             raise RuntimeError("The image could not be understood.")
-        combined_request = (
-            f"USER REQUEST:\n{user_instruction or 'Determine what matters in this image.'}\n\n"
-            f"VISUAL EVIDENCE FROM IMAGE:\n{visual_context}\n\n"
-            "Treat the visual evidence as input to investigate. Verify factual claims through research."
-        )
+        combined_request = f"USER REQUEST:\n{user_instruction or 'Determine what matters in this image.'}\n\nVISUAL EVIDENCE FROM IMAGE:\n{visual_context}\n\nTreat the visual evidence as input to investigate. Verify factual claims through research."
         if command == "research":
-            if not user_instruction:
-                combined_query = (
-                    "Research and explain the crypto/Web3 subject shown in this image. "
-                    "Extract the important entities, claims and context from the image and verify them.\n\n"
-                    + combined_request
-                )
-            else:
-                combined_query = combined_request
+            combined_query = combined_request if user_instruction else "Research and explain the crypto/Web3 subject shown in this image. Extract the important entities, claims and context from the image and verify them.\n\n" + combined_request
             research = await asyncio.to_thread(search_web, combined_query)
             if not research.get("results"):
                 await status.edit_text("❌ No useful crypto/Web3 research found from the image and request.")
                 return
             intelligence = await asyncio.to_thread(generate_intelligence, research, "image-assisted manual research")
-            intelligence = format_research_output(intelligence)
             await status.delete()
-            await send_message(update, intelligence)
+            await send_message(update, format_research_output(intelligence))
             return
         if command == "create":
-            create_request = user_instruction or "Create the most useful crypto content based on what is shown in this image."
             research = await asyncio.to_thread(search_web, combined_request)
-            if not research:
-                research = {"query": combined_request, "results": []}
-            content = await asyncio.to_thread(
-                generate_content,
-                create_request + "\n\nImage context:\n" + visual_context,
-                research,
-            )
-            if not content:
-                raise RuntimeError("No content was generated.")
+            content = await asyncio.to_thread(generate_content, user_instruction or "Create the most useful crypto content based on what is shown in this image.", research or {"query": combined_request, "results": []})
             await status.delete()
             await send_message(update, content)
             return
         if command == "ideas":
-            ideas_request = user_instruction or "Generate useful crypto content ideas from this image."
             research = await asyncio.to_thread(search_web, combined_request)
             if not research.get("results"):
                 await status.edit_text("❌ No useful research found for the image.")
                 return
-            ideas = await asyncio.to_thread(
-                generate_ideas,
-                ideas_request + "\n\nImage context:\n" + visual_context,
-                research,
-            )
-            if not ideas:
-                raise RuntimeError("No ideas were generated.")
+            ideas = await asyncio.to_thread(generate_ideas, (user_instruction or "Generate useful crypto content ideas from this image.") + "\n\nImage context:\n" + visual_context, research)
             await status.delete()
             await send_message(update, ideas)
             return
         lower_request = user_instruction.lower()
         if lower_request.startswith("give meme"):
-            mode = "meme"
-            idea_request = user_instruction[len("give meme"):].strip()
+            mode, idea_request = "meme", user_instruction[len("give meme"):].strip()
         elif lower_request.startswith("give me post ideas"):
-            mode = "post"
-            idea_request = user_instruction[len("give me post ideas"):].strip()
+            mode, idea_request = "post", user_instruction[len("give me post ideas"):].strip()
         elif lower_request.startswith("give post ideas"):
-            mode = "post"
-            idea_request = user_instruction[len("give post ideas"):].strip()
+            mode, idea_request = "post", user_instruction[len("give post ideas"):].strip()
         elif lower_request.startswith("post ideas"):
-            mode = "post"
-            idea_request = user_instruction[len("post ideas"):].strip()
+            mode, idea_request = "post", user_instruction[len("post ideas"):].strip()
         else:
-            await status.edit_text(
-                "❌ For an image /idea request, use:\n"
-                "/idea give meme <situation>\n"
-                "/idea give me post ideas <subject>"
-            )
+            await status.edit_text("❌ For an image /idea request, use:\n/idea give meme <situation>\n/idea give me post ideas <subject>")
             return
         idea_request = (idea_request or "Create ideas from the subject and visual details in this image.") + "\n\nImage context:\n" + visual_context
         research = await asyncio.to_thread(search_web, idea_request, 8)
@@ -411,35 +342,26 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status.edit_text("❌ I couldn't find enough useful research for this image.")
             return
         ideas = await asyncio.to_thread(generate_creative_ideas, mode, idea_request, research)
-        if not ideas:
-            raise RuntimeError("No creative ideas were generated.")
         await status.delete()
         await send_message(update, ideas)
     except Exception as exc:
         logger.exception("Image command failed.")
         try:
-            await status.edit_text(f"❌ Image command failed.\n\n{exc}")
-        except Exception:
             await message.reply_text(f"❌ Image command failed.\n\n{exc}")
+        except Exception:
+            pass
 
 def setup_handlers():
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("help", help_command))
     telegram_app.add_handler(CommandHandler("niches", niches_command))
     telegram_app.add_handler(CommandHandler("research", research_command))
+    telegram_app.add_handler(CommandHandler("analyze", analyze_command))
     telegram_app.add_handler(CommandHandler("idea", idea_command))
     telegram_app.add_handler(CommandHandler("ideas", ideas_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
-    telegram_app.add_handler(CommandHandler("generate", generate_command))
     telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
-    telegram_app.add_handler(
-        MessageHandler(
-            filters.PHOTO & filters.CaptionRegex(
-                r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s|$)"
-            ),
-            image_command,
-        )
-    )
+    telegram_app.add_handler(MessageHandler(filters.PHOTO & filters.CaptionRegex(r"^/(analyze|research|idea|ideas|create)(?:@\w+)?(?:\s|$)"), image_command))
 
 setup_handlers()
 
@@ -466,10 +388,7 @@ async def startup():
     render_url = os.environ.get("RENDER_EXTERNAL_URL")
     if render_url:
         webhook_url = f"{render_url.rstrip('/')}/telegram"
-        await telegram_app.bot.set_webhook(
-            url=webhook_url,
-            allowed_updates=Update.ALL_TYPES,
-        )
+        await telegram_app.bot.set_webhook(url=webhook_url, allowed_updates=Update.ALL_TYPES)
         logger.info("Telegram webhook registered: %s", webhook_url)
     else:
         logger.info("RENDER_EXTERNAL_URL not set. Running without webhook registration for local testing.")
