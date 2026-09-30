@@ -18,29 +18,20 @@ from telegram.ext import (
 
 from config import TELEGRAM_BOT_TOKEN
 from niches import get_niches, add_niche
-from deep_research import deep_research
 from research import search_web
 from research_output import format_research_output
 from writer import (
     generate_intelligence,
+    generate_content,
     generate_ideas,
-)
-from creator_engine import (
-    research_for_creator,
-    creative_ideas,
-    create_content,
-    revise_content,
-    extract_primary,
-    style_suggestions,
+    generate_creative_ideas,
 )
 from vision import analyze_image
-from creator_store import add_ban, latest_draft, record_feedback, save_draft, init_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-init_db()
 
 telegram_app = (
     Application.builder()
@@ -64,12 +55,6 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
 /addniche &lt;niche&gt; — add a research niche
-/approve — approve the latest draft
-/reject — reject the latest draft
-/edit &lt;text&gt; — save an edited draft
-/shorter /sharper /moreblunt /lesspolished
-/ban &lt;phrase&gt; — add a deterministic banned phrase
-/savestyle — review style suggestions from approved posts
 
 <b>Image support</b>
 
@@ -146,19 +131,13 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = " ".join(context.args).strip()
     status = await update.message.reply_text(f"🔎 Researching:\n{query}")
     try:
-        research = await asyncio.to_thread(deep_research, query, 12)
+        research = await asyncio.to_thread(search_web, query)
         if not research.get("results"):
             await status.edit_text("❌ No useful crypto/Web3 results found.")
             return
-        intelligence = await asyncio.to_thread(
-            research_for_creator,
-            query,
-            research,
-        )
+        intelligence = await asyncio.to_thread(generate_intelligence, research, "manual research")
+        intelligence = format_research_output(intelligence)
         await status.delete()
-        primary = extract_primary(intelligence)
-        alternate = intelligence.split("\n\nALTERNATE", 1)[1].strip() if "\n\nALTERNATE" in intelligence else ""
-        save_draft(update.effective_chat.id, "research", query, primary, alternate, "research")
         await send_message(update, intelligence)
     except Exception as exc:
         logger.exception("Research failed.")
@@ -170,20 +149,20 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
-
     if not context.args:
         await update.message.reply_text(
             "Usage:\n\n"
             "/idea give meme <situation>\n"
             "/idea give me post ideas <subject>\n\n"
-            "The engine researches the subject first, then develops original "
-            "creator-grade concepts."
+            "Examples:\n"
+            "/idea give meme Elon replied to an unknown account and its token exploded\n\n"
+            "/idea give me post ideas Arc mainnet is on September 16 and what investors should do before launch"
         )
         return
-
     raw_request = " ".join(context.args).strip()
     lower_request = raw_request.lower()
-
+    mode = None
+    request_text = ""
     if lower_request.startswith("give meme"):
         mode = "meme"
         request_text = raw_request[len("give meme"):].strip()
@@ -196,52 +175,37 @@ async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif lower_request.startswith("post ideas"):
         mode = "post"
         request_text = raw_request[len("post ideas"):].strip()
-    else:
+    if not mode:
         await update.message.reply_text(
+            "I need to know what kind of idea you want.\n\n"
             "Use:\n"
             "/idea give meme <situation>\n"
             "/idea give me post ideas <subject>"
         )
         return
-
     if not request_text:
-        await update.message.reply_text(
-            "Give me the situation or subject after the command."
-        )
+        await update.message.reply_text("Give me the situation or subject after the command.")
         return
-
-    status_text = (
-        "🎨 Researching the situation and developing original meme concepts..."
+    status = await update.message.reply_text(
+        "🎨 Researching the situation and exploring meme possibilities..."
         if mode == "meme"
-        else "💡 Researching the subject and developing original story angles..."
+        else "💡 Researching the subject and exploring creative directions..."
     )
-    status = await update.message.reply_text(status_text)
-
     try:
-        research = await asyncio.to_thread(deep_research, request_text, 12)
-        ideas = await asyncio.to_thread(
-            creative_ideas,
-            mode,
-            request_text,
-            research or {"query": request_text, "results": []},
-        )
-
+        research = await asyncio.to_thread(search_web, request_text, 8)
+        if not research.get("results"):
+            research = {"query": request_text, "answer": "", "results": []}
+        ideas = await asyncio.to_thread(generate_creative_ideas, mode, request_text, research)
         if not ideas:
-            raise RuntimeError("No useful ideas were generated.")
-
+            raise RuntimeError("No creative ideas were generated.")
         await status.delete()
-        primary = extract_primary(ideas)
-        alternate = ideas.split("\n\nALTERNATE", 1)[1].strip() if "\n\nALTERNATE" in ideas else ""
-        save_draft(update.effective_chat.id, "idea", request_text, primary, alternate, "idea")
         await send_message(update, ideas)
-
     except Exception as exc:
         logger.exception("Creative idea generation failed.")
         try:
             await status.edit_text(f"❌ Idea generation failed.\n\n{exc}")
         except Exception:
             await update.message.reply_text(f"❌ Idea generation failed.\n\n{exc}")
-
 
 async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -263,7 +227,7 @@ async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request_text = " ".join(context.args).strip()
     status = await update.message.reply_text(f"💡 Researching ideas:\n{request_text}")
     try:
-        research = await asyncio.to_thread(deep_research, request_text, 12)
+        research = await asyncio.to_thread(search_web, request_text)
         if not research.get("results"):
             await status.edit_text("❌ No useful research found for this subject.")
             return
@@ -298,21 +262,13 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request_text = " ".join(context.args).strip()
     status = await update.message.reply_text("✍️ Researching and creating your content...")
     try:
-        research = await asyncio.to_thread(deep_research, request_text, 12)
+        research = await asyncio.to_thread(search_web, request_text)
         if not research:
             research = {"query": request_text, "results": []}
-        content = await asyncio.to_thread(
-            create_content,
-            request_text,
-            research,
-        )
+        content = await asyncio.to_thread(generate_content, request_text, research)
         if not content:
             raise RuntimeError("No content was generated.")
         await status.delete()
-        primary = extract_primary(content)
-        alternate = content.split("\n\nALTERNATE", 1)[1].strip() if "\n\nALTERNATE" in content else ""
-        platform = "telegram" if "telegram" in request_text.lower() else "x"
-        save_draft(update.effective_chat.id, "create", request_text, primary, alternate, platform)
         await send_message(update, content)
     except Exception as exc:
         logger.exception("Create failed.")
@@ -327,98 +283,6 @@ async def send_message(update: Update, text: str):
     max_length = 3900
     for start in range(0, len(text), max_length):
         await update.message.reply_text(text[start:start + max_length])
-
-
-async def approve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    draft = latest_draft(update.effective_chat.id)
-    if not draft:
-        await update.message.reply_text("No draft to approve.")
-        return
-    text = draft["primary_text"]
-    record_feedback(draft["id"], "approve", text, text)
-    await update.message.reply_text("Approved.")
-
-async def reject_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    draft = latest_draft(update.effective_chat.id)
-    if not draft:
-        await update.message.reply_text("No draft to reject.")
-        return
-    record_feedback(draft["id"], "reject", draft["primary_text"], "")
-    await update.message.reply_text("Rejected and logged.")
-
-async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    draft = latest_draft(update.effective_chat.id)
-    if not draft:
-        await update.message.reply_text("No draft to edit.")
-        return
-    edited = " ".join(context.args).strip()
-    if not edited:
-        await update.message.reply_text("Usage: /edit <your revised draft>")
-        return
-    record_feedback(draft["id"], "edit", draft["primary_text"], edited)
-    await update.message.reply_text(edited)
-
-async def transform_command(update: Update, context: ContextTypes.DEFAULT_TYPE, instruction: str):
-    if not update.message:
-        return
-    draft = latest_draft(update.effective_chat.id)
-    if not draft:
-        await update.message.reply_text("No draft to revise.")
-        return
-    status = await update.message.reply_text("Reworking the draft...")
-    try:
-        revised = await asyncio.to_thread(
-            revise_content,
-            draft["request"],
-            draft["primary_text"],
-            instruction,
-        )
-        record_feedback(draft["id"], "edit", draft["primary_text"], revised)
-        await status.delete()
-        await send_message(update, revised)
-    except Exception as exc:
-        logger.exception("Draft revision failed.")
-        await status.edit_text(f"Revision failed.\n\n{exc}")
-
-async def shorter_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await transform_command(update, context, "Make it shorter without losing the point or the human voice.")
-
-async def sharper_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await transform_command(update, context, "Make it sharper. Cut soft wording and keep the strongest observation.")
-
-async def moreblunt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await transform_command(update, context, "Make it more blunt and direct while preserving factual accuracy.")
-
-async def lesspolished_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await transform_command(update, context, "Make it less polished and more naturally typed, without adding fake mistakes.")
-
-async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    phrase = " ".join(context.args).strip()
-    if not phrase:
-        await update.message.reply_text("Usage: /ban <phrase>")
-        return
-    add_ban(phrase)
-    await update.message.reply_text(f"Banned: {phrase}")
-
-async def savestyle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    status = await update.message.reply_text("Reviewing approved posts for style changes...")
-    try:
-        suggestions = await asyncio.to_thread(style_suggestions)
-        await status.delete()
-        await send_message(update, suggestions)
-    except Exception as exc:
-        logger.exception("Style suggestion generation failed.")
-        await status.edit_text(f"Style review failed.\n\n{exc}")
 
 async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /research, /idea, /ideas and /create inside a photo caption."""
@@ -457,11 +321,8 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not research.get("results"):
                 await status.edit_text("❌ No useful crypto/Web3 research found from the image and request.")
                 return
-            intelligence = await asyncio.to_thread(
-                research_for_creator,
-                user_instruction or "crypto subject shown in the image",
-                research,
-            )
+            intelligence = await asyncio.to_thread(generate_intelligence, research, "image-assisted manual research")
+            intelligence = format_research_output(intelligence)
             await status.delete()
             await send_message(update, intelligence)
             return
@@ -471,7 +332,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not research:
                 research = {"query": combined_request, "results": []}
             content = await asyncio.to_thread(
-                create_content,
+                generate_content,
                 create_request + "\n\nImage context:\n" + visual_context,
                 research,
             )
@@ -521,7 +382,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not research.get("results"):
             await status.edit_text("❌ I couldn't find enough useful research for this image.")
             return
-        ideas = await asyncio.to_thread(creative_ideas, mode, idea_request, research)
+        ideas = await asyncio.to_thread(generate_creative_ideas, mode, idea_request, research)
         if not ideas:
             raise RuntimeError("No creative ideas were generated.")
         await status.delete()
@@ -542,15 +403,6 @@ def setup_handlers():
     telegram_app.add_handler(CommandHandler("ideas", ideas_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
     telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
-    telegram_app.add_handler(CommandHandler("approve", approve_command))
-    telegram_app.add_handler(CommandHandler("reject", reject_command))
-    telegram_app.add_handler(CommandHandler("edit", edit_command))
-    telegram_app.add_handler(CommandHandler("shorter", shorter_command))
-    telegram_app.add_handler(CommandHandler("sharper", sharper_command))
-    telegram_app.add_handler(CommandHandler("moreblunt", moreblunt_command))
-    telegram_app.add_handler(CommandHandler("lesspolished", lesspolished_command))
-    telegram_app.add_handler(CommandHandler("ban", ban_command))
-    telegram_app.add_handler(CommandHandler("savestyle", savestyle_command))
     telegram_app.add_handler(
         MessageHandler(
             filters.PHOTO & filters.CaptionRegex(
