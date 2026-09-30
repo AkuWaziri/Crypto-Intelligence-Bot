@@ -22,9 +22,12 @@ from research import search_web
 from research_output import format_research_output
 from writer import (
     generate_intelligence,
-    generate_content,
     generate_ideas,
-    generate_creative_ideas,
+)
+from creator_engine import (
+    research_for_creator,
+    creative_ideas,
+    create_content,
 )
 from vision import analyze_image
 
@@ -135,8 +138,11 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not research.get("results"):
             await status.edit_text("❌ No useful crypto/Web3 results found.")
             return
-        intelligence = await asyncio.to_thread(generate_intelligence, research, "manual research")
-        intelligence = format_research_output(intelligence)
+        intelligence = await asyncio.to_thread(
+            research_for_creator,
+            query,
+            research,
+        )
         await status.delete()
         await send_message(update, intelligence)
     except Exception as exc:
@@ -149,20 +155,20 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
+
     if not context.args:
         await update.message.reply_text(
             "Usage:\n\n"
             "/idea give meme <situation>\n"
             "/idea give me post ideas <subject>\n\n"
-            "Examples:\n"
-            "/idea give meme Elon replied to an unknown account and its token exploded\n\n"
-            "/idea give me post ideas Arc mainnet is on September 16 and what investors should do before launch"
+            "The engine researches the subject first, then develops original "
+            "creator-grade concepts."
         )
         return
+
     raw_request = " ".join(context.args).strip()
     lower_request = raw_request.lower()
-    mode = None
-    request_text = ""
+
     if lower_request.startswith("give meme"):
         mode = "meme"
         request_text = raw_request[len("give meme"):].strip()
@@ -175,37 +181,49 @@ async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif lower_request.startswith("post ideas"):
         mode = "post"
         request_text = raw_request[len("post ideas"):].strip()
-    if not mode:
+    else:
         await update.message.reply_text(
-            "I need to know what kind of idea you want.\n\n"
             "Use:\n"
             "/idea give meme <situation>\n"
             "/idea give me post ideas <subject>"
         )
         return
+
     if not request_text:
-        await update.message.reply_text("Give me the situation or subject after the command.")
+        await update.message.reply_text(
+            "Give me the situation or subject after the command."
+        )
         return
-    status = await update.message.reply_text(
-        "🎨 Researching the situation and exploring meme possibilities..."
+
+    status_text = (
+        "🎨 Researching the situation and developing original meme concepts..."
         if mode == "meme"
-        else "💡 Researching the subject and exploring creative directions..."
+        else "💡 Researching the subject and developing original story angles..."
     )
+    status = await update.message.reply_text(status_text)
+
     try:
-        research = await asyncio.to_thread(search_web, request_text, 8)
-        if not research.get("results"):
-            research = {"query": request_text, "answer": "", "results": []}
-        ideas = await asyncio.to_thread(generate_creative_ideas, mode, request_text, research)
+        research = await asyncio.to_thread(search_web, request_text, 10)
+        ideas = await asyncio.to_thread(
+            creative_ideas,
+            mode,
+            request_text,
+            research or {"query": request_text, "results": []},
+        )
+
         if not ideas:
-            raise RuntimeError("No creative ideas were generated.")
+            raise RuntimeError("No useful ideas were generated.")
+
         await status.delete()
         await send_message(update, ideas)
+
     except Exception as exc:
         logger.exception("Creative idea generation failed.")
         try:
             await status.edit_text(f"❌ Idea generation failed.\n\n{exc}")
         except Exception:
             await update.message.reply_text(f"❌ Idea generation failed.\n\n{exc}")
+
 
 async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -265,7 +283,11 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         research = await asyncio.to_thread(search_web, request_text)
         if not research:
             research = {"query": request_text, "results": []}
-        content = await asyncio.to_thread(generate_content, request_text, research)
+        content = await asyncio.to_thread(
+            create_content,
+            request_text,
+            research,
+        )
         if not content:
             raise RuntimeError("No content was generated.")
         await status.delete()
@@ -321,8 +343,11 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not research.get("results"):
                 await status.edit_text("❌ No useful crypto/Web3 research found from the image and request.")
                 return
-            intelligence = await asyncio.to_thread(generate_intelligence, research, "image-assisted manual research")
-            intelligence = format_research_output(intelligence)
+            intelligence = await asyncio.to_thread(
+                research_for_creator,
+                user_instruction or "crypto subject shown in the image",
+                research,
+            )
             await status.delete()
             await send_message(update, intelligence)
             return
@@ -332,7 +357,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not research:
                 research = {"query": combined_request, "results": []}
             content = await asyncio.to_thread(
-                generate_content,
+                create_content,
                 create_request + "\n\nImage context:\n" + visual_context,
                 research,
             )
@@ -382,7 +407,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not research.get("results"):
             await status.edit_text("❌ I couldn't find enough useful research for this image.")
             return
-        ideas = await asyncio.to_thread(generate_creative_ideas, mode, idea_request, research)
+        ideas = await asyncio.to_thread(creative_ideas, mode, idea_request, research)
         if not ideas:
             raise RuntimeError("No creative ideas were generated.")
         await status.delete()
