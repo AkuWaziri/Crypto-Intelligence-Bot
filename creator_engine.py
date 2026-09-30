@@ -84,20 +84,22 @@ def _call(prompt, temperature=0.8, max_tokens=1200):
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=temperature,
-        max_tokens=min(max(int(max_tokens), 200), 2200),
+        max_tokens=min(max(int(max_tokens), 200), 1800),
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "You are a senior crypto creator and editor. "
-                    "Tone DNA is the authority. Never substitute generic AI style. "
-                    "Do not mention your process. Never invent facts."
+                    "You are a sharp human crypto-native writer and editor. "
+                    "Tone DNA is the single source of truth for voice. "
+                    "Write like a person with taste, memory, conviction and specific knowledge. "
+                    "Never mention the writing process. Never invent facts."
                 ),
             },
             {"role": "user", "content": prompt},
         ],
     )
     return (response.choices[0].message.content or "").strip()
+
 
 def _quality(text, platform="x"):
     text = str(text or "")
@@ -114,9 +116,14 @@ def _quality(text, platform="x"):
             issues.append("over_280")
         if len(re.findall(r"(?<!\w)#\w+", text)) > 1:
             issues.append("too_many_hashtags")
+        if re.search(r"(?m)^\s*(?:[-*•]|\d+[.)])\s+", text):
+            issues.append("list_format")
+        if re.search(r"(?m)^\s*(?:#+\s+|\*\*.+\*\*)", text):
+            issues.append("header_format")
     if re.search(r"\b(?:guaranteed|guarantee|risk[- ]?free|certain profit|sure profit)\b", text, re.I):
         issues.append("financial_safety")
-    return issues
+    return sorted(set(issues))
+
 
 def _structure(text):
     lines = [x.strip() for x in str(text).splitlines() if x.strip()]
@@ -135,83 +142,116 @@ def _structure(text):
         return "long_form"
     return "short_paragraphs"
 
+
 def _tone_context():
     return (
         "TONE DNA, OWNER PROFILE AND APPROVED POSTS ARE THE SOURCE OF TRUTH.\n"
+        "Do not imitate a generic crypto creator. Learn cadence, vocabulary, "
+        "sentence pressure, humor and degree of bluntness from the material below.\n"
         "TONE DNA:\n" + _profile() + "\n\n"
         "LAST 20 APPROVED POSTS:\n" + _approved_packet()
     )
 
+
 def _base_rules(platform):
+    x_rules = """
+X FORMAT:
+No emojis anywhere. No em dash. No headers, bold or bullet lists.
+One sharp idea per post. Hook in the first line.
+Keep it under 280 characters unless the request explicitly asks for a thread.
+No closing moral or summary.
+"""
     return f"""
 HARD OUTPUT RULES:
-- Tone DNA overrides default assistant style.
-- No emojis.
-- No em dash. Use periods or commas.
-- No corporate/SEO language.
-- No generic assistant preamble.
-- No contrast-frame constructions such as "it's not X, it's Y", "not just X but Y", "forget X, think Y".
-- No rhetorical filler such as "here's the thing", "let that sink in", "read that again", "think about it".
-- Never use banned phrases.
-- Never invent facts, numbers, dates, quotes, motives or outcomes.
-- Avoid triplet lists used as rhythm.
-- Do not end every post with a question.
-- Keep the writing human, specific and opinionated when the command is not /research.
-- {platform.upper()} output must match its platform behavior.
+Tone DNA is the authority.
+A stranger should believe a human typed this without seeing the prompt.
+Start with a human hook, not a topic label or assistant-style setup.
+Include at least one concrete, post-specific detail when the research supports one.
+For non-research commands, take a clear position. Conviction can be direct, metaphorical,
+hyperbolic, idiomatic, a simile, educational analysis, or a mix when natural.
+Do not force a position when evidence genuinely does not support one.
+Change the structure from recent outputs. Do not reuse the same skeleton twice in a row.
+Vary length. Short is allowed. Long is allowed when the platform/request needs it.
+Use short forms and crypto-native shorthand naturally when Tone DNA supports it.
+Allow small imperfections such as fragments or lowercase starts when they fit the voice.
+Do not fabricate personal memories or experiences.
+No generic bot-assistant phrasing.
+No contrast-frame constructions in any form: "it's not X, it's Y", "this isn't about X, it's about Y",
+"not just X but Y", "more than just X", "forget X, think Y".
+No rhetorical setups: "here's the thing", "let that sink in", "read that again",
+"think about it", "ever wondered".
+No filler openers: "in today's fast-paced world", "in the world of crypto", "let's dive in",
+"let's break it down", "buckle up".
+Avoid triplet lists used for rhythm.
+Do not end every post with a question. Ask only when a real person would genuinely ask it.
+Never invent facts, numbers, dates, quotes, motives or outcomes.
+Do not use these words/phrases: actually, honestly, essentially, literally, game-changer,
+revolutionary, groundbreaking, unlock, unleash, delve, landscape, ecosystem, journey, navigate,
+tapestry, testament, realm, paradigm, seamless, robust, leverage, "at the end of the day",
+"the future of", "changing the game".
+{ x_rules if platform == "x" else "Match the requested platform's natural formatting and behavior."}
 """
+
 
 def _thinking():
     return """
-PRIVATE THINKING PASS. Do not output:
-1. What is the one thing I actually want to say?
-2. What do I believe and what is my position?
-3. What would most people say here? Avoid that take.
-4. What specific verified detail makes this credible?
-5. Who is reading and what do they already know?
-6. What is the risk of being wrong or misread?
+PRIVATE THINKING. Do not output this section.
+First identify the one idea worth saying.
+Then identify the strongest verified detail.
+Then decide what you believe about it.
+Then choose a structure that differs from recent structures.
+For humor/satire, identify the real tension in the current story before writing the joke.
+For meme/comic concepts, think visually: text-only, character reaction, arrow/box annotation,
+or one/two-panel setup. The joke must come from a specific observation.
 """
+
 
 def _research_requirements():
     return """
 RESEARCH DISCIPLINE:
-Use the research packet as evidence, not as decoration.
+Use the research packet as evidence, not decoration.
 Prefer primary sources. Cross-check important numbers, dates and claims.
-Treat a fact as verified only when independently supported by at least two sources.
-Treat a claim with one supporting source as single-source.
-Treat a claim described as unverified, alleged or speculative as rumor/uncertain.
-If evidence is missing, say not found. Never fill gaps from memory.
-Look for the overlooked detail, contradiction, timing angle, risk or incentive.
+Treat unsupported details as unknown. Never fill gaps from memory.
+Separate verified facts, single-source claims and uncertainty.
+Find the overlooked detail, contradiction, timing angle, risk, incentive or mechanism.
 """
 
-def _draft_and_rewrite(prompt, platform, temperature=0.82, max_tokens=1400):
+
+def _one_pass(prompt, platform, temperature=0.82, max_tokens=1100):
     structures = recent_structures(10)
-    full = prompt + "\n\nRECENT STRUCTURES TO AVOID REUSING:\n" + ", ".join(structures)
-    drafts = []
-    for angle in ("direct observation", "unexpected consequence", "incentive or contradiction"):
-        drafts.append(_call(full + f"\n\nINTERNAL DRAFT ANGLE: {angle}. Draft internally only.", temperature, max_tokens))
-    best_prompt = full + (
-        "\n\nYou have three internal drafts. Select the strongest one, then rewrite it "
-        "in Tone DNA voice. Do not output the drafts or explain the choice.\n"
-        "Run a private anti-AI quality check before returning."
-    )
-    primary = _call(best_prompt, temperature, max_tokens)
-    alternate = _call(
-        full + "\n\nCreate ONE materially different alternate angle. Return only the alternate.",
-        temperature, max_tokens
-    )
-    return primary.strip(), alternate.strip()
+    prompt = prompt + "\n\nRECENT STRUCTURES TO AVOID:\n" + ", ".join(structures[-8:])
+    return _call(prompt, temperature, max_tokens)
+
+
+def _repair(text, prompt, platform):
+    issues = _quality(text, platform)
+    if not issues:
+        return text.strip()
+    repair_prompt = f"""
+{_tone_context()}
+{_base_rules(platform)}
+
+Rewrite ONLY the draft below. Fix: {", ".join(issues)}.
+Keep the same core idea and verified details. Make it sound more human, not more polished.
+Return only the finished draft.
+
+DRAFT:
+{text}
+"""
+    fixed = _call(repair_prompt, 0.5, 500)
+    return fixed.strip()
+
 
 def research_for_creator(topic, research):
     patterns = _patterns(topic)
     prompt = f"""
 {_tone_context()}
-
 {_research_requirements()}
-
 {_base_rules("telegram")}
+{_thinking()}
 
-This is /research. It must remain neutral and evidence-led.
-Do not take a political, financial or promotional position.
+COMMAND: /research
+Remain neutral and evidence-led. Do not take a political, financial or promotional position.
 
 TOPIC:
 {topic}
@@ -219,12 +259,10 @@ TOPIC:
 RESEARCH PACKET:
 {_research_packet(research)}
 
-HUMAN PATTERN PASS:
+HUMAN PATTERN DATA:
 {patterns}
 
-Return the primary research brief and one alternate angle.
-
-PRIMARY:
+Write a compact research brief. Keep the existing useful research structure:
 RESEARCH BRIEF
 Topic: ...
 BOTTOM LINE
@@ -246,51 +284,51 @@ CONTENT ANGLES
 SOURCE NOTES
 - title — url
 
-ALTERNATE:
-A different evidence-led angle in 3-5 concise lines.
-
-No unsupported claims. No invented source labels.
+Then add one genuinely different alternate angle.
+Do not invent source labels or facts.
 """
-    primary, alternate = _draft_and_rewrite(prompt, "telegram", 0.55, 1500)
-    return f"{primary}\n\nALTERNATE\n{alternate}"
+    primary = _one_pass(prompt, "telegram", 0.55, 1500)
+    return _repair(primary, prompt, "telegram")
+
 
 def creative_ideas(mode, request, research):
     patterns = _patterns(request)
-    mode_rules = """
-MEME MODE:
-Return exactly 3 distinct concepts plus one alternate.
-Comedy must come from a specific human observation in the researched situation.
-No generic crypto clichés unless the live pattern data shows they are active.
-Each concept must include FORMAT, OBSERVATION, EXECUTION, PUNCHLINE.
-""" if mode == "meme" else """
-POST IDEA MODE:
-Return exactly 3 distinct story ideas plus one alternate.
-Each must include HOOK and ANGLE.
-Go beyond the headline. Find mechanism, incentive, consequence, behavior,
-misconception, data, timeline, business model, failure mode or practical lesson.
+    if mode == "meme":
+        mode_rules = """
+Return exactly 3 distinct meme/comic concepts and one alternate.
+For each: FORMAT, OBSERVATION, EXECUTION, PUNCHLINE.
+The observation must come from the researched situation.
+Think like a pro crypto memecomic artist. Build the joke around the real tension.
+"""
+    else:
+        mode_rules = """
+Return exactly 3 distinct post ideas and one alternate.
+For each: HOOK and ANGLE.
+Each idea must have a specific detail and a clear editorial direction.
 """
     prompt = f"""
 {_tone_context()}
-
 {_research_requirements()}
 {_base_rules("telegram")}
 {_thinking()}
 
+COMMAND: /idea
 REQUEST:
 {request}
 
 RESEARCH PACKET:
 {_research_packet(research)}
 
-HUMAN PATTERN PASS:
+HUMAN PATTERN DATA:
 {patterns}
 
 {mode_rules}
-
-Return no preamble, no strategy commentary and no source dump.
+Avoid generic crypto clichés unless the live pattern data shows they are active.
+Return no preamble and no process commentary.
 """
-    primary, alternate = _draft_and_rewrite(prompt, "telegram", 0.92, 1200)
-    return f"{primary}\n\nALTERNATE\n{alternate}"
+    primary = _one_pass(prompt, "telegram", 0.88, 1200)
+    return _repair(primary, prompt, "telegram")
+
 
 def create_content(request, research):
     platform = "x"
@@ -299,66 +337,39 @@ def create_content(request, research):
         platform = "telegram"
     if "thread" in low:
         platform = "x_thread"
+
     patterns = _patterns(request)
     prompt = f"""
 {_tone_context()}
-
 {_research_requirements()}
 {_base_rules(platform)}
 {_thinking()}
 
+COMMAND: /create
 REQUEST:
 {request}
 
 RESEARCH PACKET:
 {_research_packet(research)}
 
-HUMAN PATTERN PASS:
+HUMAN PATTERN DATA:
 {patterns}
 
-PLATFORM:
-{platform}
-
-WRITE THE FINAL CONTENT.
-X: one idea, sharp hook, under 280 characters unless the request explicitly asks for a thread.
-Telegram: conversational, detailed enough to be useful, short paragraphs.
-Threads: each post must stand on its own.
-No headers, bold or bullets in an X post.
-Do not summarize the post at the end.
-Do not fabricate personal experiences.
-
-Return only the finished primary draft.
+Write the final content now.
+The first line must feel like a human thought or observation, not "X is..." or "Here are...".
+A stranger reading it should believe a human crypto-native wrote it.
+Use at least one specific verified detail from the research when one exists.
+Take a clear position. The position may be conviction, metaphor, hyperbole, idiom, simile,
+education, analysis or a natural mix.
+Use one idea only. Avoid the structure used by the recent outputs.
+Vary sentence length and density. Short forms/abbreviations are welcome where natural.
+For satire or meme requests, identify the real tension first and make the humor specific.
+Return only the finished primary post. No labels, no alternate, no explanation.
 """
-    primary, alternate = _draft_and_rewrite(prompt, platform, 0.82, 1500)
-    issues = _quality(primary, "x" if platform.startswith("x") else platform)
-    if issues:
-        repair = f"""
-{_tone_context()}
-
-REWRITE THE DRAFT. Fix every deterministic issue: {", ".join(issues)}.
-Preserve the central idea, factual grounding and Tone DNA.
-Return only the repaired draft.
-
-DRAFT:
-{primary}
-"""
-        for _ in range(2):
-            primary = _call(repair, 0.55, 500)
-            issues = _quality(primary, "x" if platform.startswith("x") else platform)
-            if not issues:
-                break
-    alt_issues = _quality(alternate, "x" if platform.startswith("x") else platform)
-    if alt_issues:
-        alternate = _call(
-            f"{_tone_context()}\nRewrite this alternate to remove: {', '.join(alt_issues)}. Return only the alternate.\n{alternate}",
-            0.55, 500
-        )
+    primary = _one_pass(prompt, platform, 0.82, 1000)
+    primary = _repair(primary, prompt, "x" if platform.startswith("x") else platform)
     remember_structure(_structure(primary))
-    return f"{primary}\n\nALTERNATE\n{alternate}"
-
-def extract_primary(text):
-    return str(text or "").split("\n\nALTERNATE", 1)[0].strip()
-
+    return primary
 
 def revise_content(request, draft, instruction):
     platform = "x"
