@@ -358,3 +358,63 @@ DRAFT:
 
 def extract_primary(text):
     return str(text or "").split("\n\nALTERNATE", 1)[0].strip()
+
+
+def revise_content(request, draft, instruction):
+    platform = "x"
+    low = str(request or "").lower()
+    if "telegram" in low:
+        platform = "telegram"
+    prompt = f"""
+{_tone_context()}
+{_base_rules(platform)}
+{_research_requirements()}
+
+CURRENT DRAFT:
+{draft}
+
+OWNER EDIT INSTRUCTION:
+{instruction}
+
+Rewrite the draft according to the instruction.
+Preserve factual claims unless the instruction changes them.
+Do not add unsupported claims.
+Return only the revised draft.
+"""
+    revised = _call(prompt, 0.65, 900)
+    issues = _quality(revised, "x" if platform.startswith("x") else platform)
+    for _ in range(2):
+        if not issues:
+            break
+        revised = _call(
+            f"{_tone_context()}\nFix these deterministic issues: {', '.join(issues)}. "
+            f"Return only the revised draft.\nDRAFT:\n{revised}",
+            0.5, 700
+        )
+        issues = _quality(revised, "x" if platform.startswith("x") else platform)
+    remember_structure(_structure(revised))
+    return revised
+
+def style_suggestions():
+    posts = approved_posts(20)
+    if not posts:
+        return "No approved posts are logged yet."
+    packet = "\n\n".join(p["text"] for p in posts)
+    prompt = f"""
+You are updating a creator's Tone DNA suggestion sheet.
+
+Existing Tone DNA:
+{_profile()}
+
+Last approved posts:
+{packet}
+
+Identify only changes that are supported by repeated evidence in the approved posts.
+Do not overwrite the Tone DNA. Do not invent traits.
+Return concise suggestions under:
+KEEP
+ADD
+REMOVE
+TEST
+"""
+    return _call(prompt, 0.25, 700)
