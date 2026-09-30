@@ -100,7 +100,6 @@ def _call(prompt, temperature=0.8, max_tokens=900):
     )
     return (response.choices[0].message.content or "").strip()
 
-
 def _quality(text, platform="x"):
     text = str(text or "")
     issues = []
@@ -124,7 +123,6 @@ def _quality(text, platform="x"):
         issues.append("financial_safety")
     return sorted(set(issues))
 
-
 def _structure(text):
     lines = [x.strip() for x in str(text).splitlines() if x.strip()]
     if not lines:
@@ -142,7 +140,6 @@ def _structure(text):
         return "long_form"
     return "short_paragraphs"
 
-
 def _tone_context():
     return (
         "TONE DNA, OWNER PROFILE AND APPROVED POSTS ARE THE SOURCE OF TRUTH.\n"
@@ -151,7 +148,6 @@ def _tone_context():
         "TONE DNA:\n" + _profile() + "\n\n"
         "LAST 20 APPROVED POSTS:\n" + _approved_packet()
     )
-
 
 def _base_rules(platform):
     x_rules = """
@@ -192,7 +188,6 @@ tapestry, testament, realm, paradigm, seamless, robust, leverage, "at the end of
 { x_rules if platform == "x" else "Match the requested platform's natural formatting and behavior."}
 """
 
-
 def _thinking():
     return """
 PRIVATE THINKING. Do not output this section.
@@ -205,7 +200,6 @@ For meme/comic concepts, think visually: text-only, character reaction, arrow/bo
 or one/two-panel setup. The joke must come from a specific observation.
 """
 
-
 def _research_requirements():
     return """
 RESEARCH DISCIPLINE:
@@ -216,14 +210,12 @@ Separate verified facts, single-source claims and uncertainty.
 Find the overlooked detail, contradiction, timing angle, risk, incentive or mechanism.
 """
 
-
 def _one_pass(prompt, platform, temperature=0.82, max_tokens=900):
     structures = recent_structures(10)
     prompt = prompt + "\n\nRECENT STRUCTURES TO AVOID:\n" + ", ".join(structures[-8:])
     return _call(prompt, temperature, max_tokens)
 
-
-def _cap_output(text, limit=750):
+def _cap_output(text, limit=900):
     text = str(text or "").strip()
     if len(text) <= limit:
         return text
@@ -232,7 +224,6 @@ def _cap_output(text, limit=750):
     if boundary >= int(limit * 0.72):
         cut = cut[:boundary].rstrip(" ,;:-")
     return cut
-
 
 def _repair(text, prompt, platform):
     issues = _quality(text, platform)
@@ -251,7 +242,6 @@ DRAFT:
 """
     fixed = _call(repair_prompt, 0.5, 500)
     return _cap_output(fixed)
-
 
 def research_for_creator(topic, research):
     patterns = _patterns(topic)
@@ -301,15 +291,16 @@ Do not invent source labels or facts.
     primary = _one_pass(prompt, "telegram", 0.55, 1500)
     return _cap_output(_repair(primary, prompt, "telegram"))
 
-
 def creative_ideas(mode, request, research):
     patterns = _patterns(request)
     if mode == "meme":
         mode_rules = """
-Return exactly 3 distinct meme/comic concepts and one alternate.
-For each: FORMAT, OBSERVATION, EXECUTION, PUNCHLINE.
+Return exactly 2 strong meme/comic angles. Do not return 3 options and do not add an alternate.
+For each angle use: FORMAT, OBSERVATION, EXECUTION, PUNCHLINE.
 The observation must come from the researched situation.
 Think like a pro crypto memecomic artist. Build the joke around the real tension.
+Each angle must be executable as an actual meme/comic, not a generic topic or post idea.
+Make the two executions meaningfully different in format or joke mechanism.
 """
     else:
         mode_rules = """
@@ -339,7 +330,6 @@ Return no preamble and no process commentary.
 """
     primary = _one_pass(prompt, "telegram", 0.88, 1200)
     return _cap_output(_repair(primary, prompt, "telegram"))
-
 
 def create_content(request, research):
     platform = "x"
@@ -416,7 +406,6 @@ Return only the revised draft.
         issues = _quality(revised, "x" if platform.startswith("x") else platform)
     remember_structure(_structure(revised))
     return revised
-
 def style_suggestions():
     posts = approved_posts(20)
     if not posts:
