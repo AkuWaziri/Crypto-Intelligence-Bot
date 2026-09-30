@@ -77,7 +77,7 @@ def _patterns(topic):
         f"SAMPLES FOR ANALYSIS ONLY:\n{samples}"
     )
 
-def _call(prompt, temperature=0.8, max_tokens=1200):
+def _call(prompt, temperature=0.8, max_tokens=900):
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY is not configured.")
     client = Groq(api_key=GROQ_API_KEY)
@@ -217,10 +217,21 @@ Find the overlooked detail, contradiction, timing angle, risk, incentive or mech
 """
 
 
-def _one_pass(prompt, platform, temperature=0.82, max_tokens=1100):
+def _one_pass(prompt, platform, temperature=0.82, max_tokens=900):
     structures = recent_structures(10)
     prompt = prompt + "\n\nRECENT STRUCTURES TO AVOID:\n" + ", ".join(structures[-8:])
     return _call(prompt, temperature, max_tokens)
+
+
+def _cap_output(text, limit=750):
+    text = str(text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rstrip()
+    boundary = max(cut.rfind("\n"), cut.rfind(". "), cut.rfind(" "), 0)
+    if boundary >= int(limit * 0.72):
+        cut = cut[:boundary].rstrip(" ,;:-")
+    return cut
 
 
 def _repair(text, prompt, platform):
@@ -239,7 +250,7 @@ DRAFT:
 {text}
 """
     fixed = _call(repair_prompt, 0.5, 500)
-    return fixed.strip()
+    return _cap_output(fixed)
 
 
 def research_for_creator(topic, research):
@@ -288,7 +299,7 @@ Then add one genuinely different alternate angle.
 Do not invent source labels or facts.
 """
     primary = _one_pass(prompt, "telegram", 0.55, 1500)
-    return _repair(primary, prompt, "telegram")
+    return _cap_output(_repair(primary, prompt, "telegram"))
 
 
 def creative_ideas(mode, request, research):
@@ -327,7 +338,7 @@ Avoid generic crypto clichés unless the live pattern data shows they are active
 Return no preamble and no process commentary.
 """
     primary = _one_pass(prompt, "telegram", 0.88, 1200)
-    return _repair(primary, prompt, "telegram")
+    return _cap_output(_repair(primary, prompt, "telegram"))
 
 
 def create_content(request, research):
@@ -367,7 +378,7 @@ For satire or meme requests, identify the real tension first and make the humor 
 Return only the finished primary post. No labels, no alternate, no explanation.
 """
     primary = _one_pass(prompt, platform, 0.82, 1000)
-    primary = _repair(primary, prompt, "x" if platform.startswith("x") else platform)
+    primary = _cap_output(_repair(primary, prompt, "x" if platform.startswith("x") else platform))
     remember_structure(_structure(primary))
     return primary
 
