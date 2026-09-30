@@ -19,6 +19,7 @@ from telegram.ext import (
 from config import TELEGRAM_BOT_TOKEN
 from niches import get_niches, add_niche
 from deep_research import deep_research
+from research import search_web
 from research_output import format_research_output
 from writer import (
     generate_intelligence,
@@ -155,6 +156,9 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             research,
         )
         await status.delete()
+        primary = extract_primary(intelligence)
+        alternate = intelligence.split("\n\nALTERNATE", 1)[1].strip() if "\n\nALTERNATE" in intelligence else ""
+        save_draft(update.effective_chat.id, "research", query, primary, alternate, "research")
         await send_message(update, intelligence)
     except Exception as exc:
         logger.exception("Research failed.")
@@ -226,6 +230,9 @@ async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             raise RuntimeError("No useful ideas were generated.")
 
         await status.delete()
+        primary = extract_primary(ideas)
+        alternate = ideas.split("\n\nALTERNATE", 1)[1].strip() if "\n\nALTERNATE" in ideas else ""
+        save_draft(update.effective_chat.id, "idea", request_text, primary, alternate, "idea")
         await send_message(update, ideas)
 
     except Exception as exc:
@@ -291,7 +298,7 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request_text = " ".join(context.args).strip()
     status = await update.message.reply_text("✍️ Researching and creating your content...")
     try:
-        research = await asyncio.to_thread(search_web, request_text)
+        research = await asyncio.to_thread(deep_research, request_text, 12)
         if not research:
             research = {"query": request_text, "results": []}
         content = await asyncio.to_thread(
@@ -302,6 +309,10 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not content:
             raise RuntimeError("No content was generated.")
         await status.delete()
+        primary = extract_primary(content)
+        alternate = content.split("\n\nALTERNATE", 1)[1].strip() if "\n\nALTERNATE" in content else ""
+        platform = "telegram" if "telegram" in request_text.lower() else "x"
+        save_draft(update.effective_chat.id, "create", request_text, primary, alternate, platform)
         await send_message(update, content)
     except Exception as exc:
         logger.exception("Create failed.")
