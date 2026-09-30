@@ -102,7 +102,7 @@ def find_banned(text):
     text = str(text or "")
     hits = []
     for phrase in banned_phrases():
-        pattern = re.compile(r"(?<!\\w)" + re.escape(phrase) + r"(?!\\w)", re.I)
+        pattern = re.compile(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", re.I)
         for match in pattern.finditer(text):
             if _outside_quotes(text, match.start(), match.end()):
                 hits.append(phrase)
