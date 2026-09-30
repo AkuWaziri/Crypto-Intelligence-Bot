@@ -29,7 +29,7 @@ def _profile():
 
 
 def _clean(value, limit=None):
-    text = re.sub(r"\\s+", " ", str(value or "")).strip()
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
     if limit and len(text) > limit:
         text = text[:limit].rstrip()
     return text
