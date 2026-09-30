@@ -1,316 +1,360 @@
+import logging
 import os
 import re
-import logging
-
 from groq import Groq
 
 from config import GROQ_API_KEY, GROQ_MODEL, WRITER_PROFILE_DIR
+from creator_store import (
+    init_db, approved_posts, recent_structures, remember_structure, find_banned
+)
+from pattern_learner import get_patterns
 
 logger = logging.getLogger(__name__)
-
-MAX_RESEARCH_SOURCES = 14
+MAX_RESEARCH_SOURCES = 16
 MAX_SOURCE_CHARS = 900
 
+init_db()
 
 def _profile():
     parts = []
     for name in ("examples.txt", "patterns.txt", "rules.txt"):
         path = os.path.join(WRITER_PROFILE_DIR, name)
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                value = f.read().strip()
-            if value:
-                parts.append(f"--- {name} ---\n{value}")
-        except Exception:
-            logger.exception("Could not read creator profile: %s", name)
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    value = f.read().strip()
+                if value:
+                    parts.append(f"--- {name} ---\n{value}")
+            except Exception:
+                logger.exception("Could not read creator profile: %s", name)
     return "\n\n".join(parts)
 
-
-def _clean(value, limit=None):
-    text = re.sub(r"\s+", " ", str(value or "")).strip()
-    if limit and len(text) > limit:
-        text = text[:limit].rstrip()
-    return text
-
+def _approved_packet():
+    posts = approved_posts(20)
+    if not posts:
+        return "No approved posts have been logged yet."
+    return "\n\n".join(
+        f"APPROVED {i}:\n{p['text']}" for i,p in enumerate(posts, 1)
+    )
 
 def _research_packet(research):
     if not research:
         return "No research packet was returned."
-
     sections = []
-    answer = _clean(research.get("answer"), 1400)
+    answer = re.sub(r"\s+", " ", str(research.get("answer", "") or "")).strip()
     if answer:
-        sections.append("RESEARCH SUMMARY:\n" + answer)
-
-    results = list(research.get("results") or [])
-    results.sort(key=lambda x: float(x.get("score", 0) or 0), reverse=True)
-
+        sections.append("RESEARCH SUMMARY:\n" + answer[:1400])
     seen = set()
-    for index, result in enumerate(results[:MAX_RESEARCH_SOURCES], 1):
-        url = _clean(result.get("url"))
-        key = url or _clean(result.get("title"))
+    results = sorted(list(research.get("results") or []), key=lambda x: float(x.get("score",0) or 0), reverse=True)
+    for result in results:
+        url = str(result.get("url","") or "").strip()
+        title = str(result.get("title","") or "Untitled").strip()
+        key = url.lower() or title.lower()
         if not key or key in seen:
             continue
         seen.add(key)
-        title = _clean(result.get("title"), 220) or "Untitled"
-        content = _clean(result.get("content"), MAX_SOURCE_CHARS)
-        source = _clean(result.get("source") or result.get("domain"))
-        if not content:
-            continue
+        content = re.sub(r"\s+", " ", str(result.get("content","") or "")).strip()
         sections.append(
-            f"SOURCE {index}\n"
-            f"TITLE: {title}\n"
-            f"SOURCE: {source}\n"
-            f"EVIDENCE: {content}\n"
-            f"URL: {url}"
+            f"SOURCE: {title}\nDOMAIN: {result.get('domain','')}\n"
+            f"ANGLE: {result.get('research_angle','general')}\n"
+            f"EVIDENCE: {content[:MAX_SOURCE_CHARS]}\nURL: {url}"
         )
+        if len(sections) >= MAX_RESEARCH_SOURCES + 1:
+            break
+    return "\n\n".join(sections)
 
-    return "\n\n".join(sections) or "No usable evidence was returned."
+def _patterns(topic):
+    data = get_patterns(topic, hot=any(x in str(topic).lower() for x in ("today","latest","breaking","launch","announced","just")))
+    if not data.get("available"):
+        return "LIVE HUMAN PATTERN DATA: unavailable. Do not invent trend observations."
+    samples = "\n".join(f"- {x['text']}" for x in data.get("sample", [])[:20])
+    return (
+        f"LIVE HUMAN PATTERN DATA: {data.get('count',0)} public X posts.\n"
+        f"Average length: {data.get('length',{}).get('avg_chars','unknown')} chars.\n"
+        f"Common vocabulary: {', '.join(data.get('slang',[]))}\n"
+        f"Openers observed: {' | '.join(data.get('openers',[])[:10])}\n"
+        "Use this only for rhythm, vocabulary and gaps. Never copy a phrase or sentence.\n"
+        f"SAMPLES FOR ANALYSIS ONLY:\n{samples}"
+    )
 
-
-def _call(prompt, temperature=0.8, max_tokens=900):
+def _call(prompt, temperature=0.8, max_tokens=1200):
     if not GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY is missing.")
-
+        raise RuntimeError("GROQ_API_KEY is not configured.")
     client = Groq(api_key=GROQ_API_KEY)
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=temperature,
-        max_tokens=min(max(int(max_tokens), 200), 1800),
+        max_tokens=min(max(int(max_tokens), 200), 2200),
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "You are a senior crypto content editor, researcher, "
-                    "story developer and creator. Write like a real human. "
-                    "Be specific, skeptical and useful. Never invent facts."
+                    "You are a senior crypto creator and editor. "
+                    "Tone DNA is the authority. Never substitute generic AI style. "
+                    "Do not mention your process. Never invent facts."
                 ),
             },
             {"role": "user", "content": prompt},
         ],
     )
-    return str(response.choices[0].message.content or "").strip()
+    return (response.choices[0].message.content or "").strip()
 
+def _quality(text, platform="x"):
+    text = str(text or "")
+    issues = []
+    if "—" in text:
+        issues.append("em_dash")
+    if re.search(r"[\U0001F300-\U0001FAFF\U00002600-\U000027BF]", text):
+        issues.append("emoji")
+    hits = find_banned(text)
+    if hits:
+        issues.extend([f"banned:{x}" for x in hits])
+    if platform == "x":
+        if len(text) > 280:
+            issues.append("over_280")
+        if len(re.findall(r"(?<!\w)#\w+", text)) > 1:
+            issues.append("too_many_hashtags")
+    if re.search(r"\b(?:guaranteed|guarantee|risk[- ]?free|certain profit|sure profit)\b", text, re.I):
+        issues.append("financial_safety")
+    return issues
+
+def _structure(text):
+    lines = [x.strip() for x in str(text).splitlines() if x.strip()]
+    if not lines:
+        return "empty"
+    first = lines[0]
+    if len(lines) == 1:
+        return "one_line"
+    if "?" in first:
+        return "question_open"
+    if first.isupper() and len(first) < 100:
+        return "all_caps_hook"
+    if len(first) < 70 and len(lines) >= 3:
+        return "short_hook_short_paragraphs"
+    if len(text) > 500:
+        return "long_form"
+    return "short_paragraphs"
+
+def _tone_context():
+    return (
+        "TONE DNA, OWNER PROFILE AND APPROVED POSTS ARE THE SOURCE OF TRUTH.\n"
+        "TONE DNA:\n" + _profile() + "\n\n"
+        "LAST 20 APPROVED POSTS:\n" + _approved_packet()
+    )
+
+def _base_rules(platform):
+    return f"""
+HARD OUTPUT RULES:
+- Tone DNA overrides default assistant style.
+- No emojis.
+- No em dash. Use periods or commas.
+- No corporate/SEO language.
+- No generic assistant preamble.
+- No contrast-frame constructions such as "it's not X, it's Y", "not just X but Y", "forget X, think Y".
+- No rhetorical filler such as "here's the thing", "let that sink in", "read that again", "think about it".
+- Never use banned phrases.
+- Never invent facts, numbers, dates, quotes, motives or outcomes.
+- Avoid triplet lists used as rhythm.
+- Do not end every post with a question.
+- Keep the writing human, specific and opinionated when the command is not /research.
+- {platform.upper()} output must match its platform behavior.
+"""
+
+def _thinking():
+    return """
+PRIVATE THINKING PASS. Do not output:
+1. What is the one thing I actually want to say?
+2. What do I believe and what is my position?
+3. What would most people say here? Avoid that take.
+4. What specific verified detail makes this credible?
+5. Who is reading and what do they already know?
+6. What is the risk of being wrong or misread?
+"""
+
+def _research_requirements():
+    return """
+RESEARCH DISCIPLINE:
+Use the research packet as evidence, not as decoration.
+Prefer primary sources. Cross-check important numbers, dates and claims.
+Treat a fact as verified only when independently supported by at least two sources.
+Treat a claim with one supporting source as single-source.
+Treat a claim described as unverified, alleged or speculative as rumor/uncertain.
+If evidence is missing, say not found. Never fill gaps from memory.
+Look for the overlooked detail, contradiction, timing angle, risk or incentive.
+"""
+
+def _draft_and_rewrite(prompt, platform, temperature=0.82, max_tokens=1400):
+    structures = recent_structures(10)
+    full = prompt + "\n\nRECENT STRUCTURES TO AVOID REUSING:\n" + ", ".join(structures)
+    drafts = []
+    for angle in ("direct observation", "unexpected consequence", "incentive or contradiction"):
+        drafts.append(_call(full + f"\n\nINTERNAL DRAFT ANGLE: {angle}. Draft internally only.", temperature, max_tokens))
+    best_prompt = full + (
+        "\n\nYou have three internal drafts. Select the strongest one, then rewrite it "
+        "in Tone DNA voice. Do not output the drafts or explain the choice.\n"
+        "Run a private anti-AI quality check before returning."
+    )
+    primary = _call(best_prompt, temperature, max_tokens)
+    alternate = _call(
+        full + "\n\nCreate ONE materially different alternate angle. Return only the alternate.",
+        temperature, max_tokens
+    )
+    return primary.strip(), alternate.strip()
 
 def research_for_creator(topic, research):
-    packet = _research_packet(research)
-    profile = _profile()
+    patterns = _patterns(topic)
     prompt = f"""
-You are the research desk for a serious crypto content creator.
+{_tone_context()}
+
+{_research_requirements()}
+
+{_base_rules("telegram")}
+
+This is /research. It must remain neutral and evidence-led.
+Do not take a political, financial or promotional position.
 
 TOPIC:
 {topic}
 
-CREATOR DNA:
-{profile}
+RESEARCH PACKET:
+{_research_packet(research)}
 
-EVIDENCE PACKET:
-{packet}
+HUMAN PATTERN PASS:
+{patterns}
 
-Produce a creator-grade research brief. Do not write a generic news summary.
+Return the primary research brief and one alternate angle.
 
-Your private process:
-1. Establish what is directly supported by the sources.
-2. Separate facts, interpretations and unresolved claims.
-3. Identify the most interesting mechanism, tension, number, behavior,
-   contradiction, consequence or overlooked detail.
-4. Find what is genuinely worth turning into content.
-5. Remove duplicated, weak or promotional claims.
-6. Never upgrade a source's claim into fact.
-7. Never invent missing numbers, dates, quotes, motives or outcomes.
-8. If sources disagree, state the disagreement clearly.
-9. Prefer primary/official evidence when available.
-10. Think like a researcher first and an editor second.
-
-Return exactly this structure:
-
+PRIMARY:
 RESEARCH BRIEF
-Topic: <topic>
-
+Topic: ...
 BOTTOM LINE
-<2-4 concise sentences explaining what the evidence actually shows>
-
-WHAT HAPPENED
-- <fact>
-- <fact>
-- <fact>
-
+...
+VERIFIED
+- ...
+SINGLE-SOURCE
+- ...
+UNCERTAIN / RUMOR
+- ...
 WHY IT IS INTERESTING
-- <specific observation>
-- <specific mechanism/consequence>
-
+- ...
 KEY EVIDENCE
-- <important fact + source context>
-- <important fact + source context>
-- <important fact + source context>
-
-WHAT IS UNCERTAIN
-- <uncertain or disputed point>
-- <uncertain or disputed point>
-
+- ...
 CONTENT ANGLES
-1. <strong specific story angle>
-2. <strong different story angle>
-3. <strong different story angle>
-4. <strong different story angle>
-5. <strong different story angle>
-
+1. ...
+2. ...
+3. ...
 SOURCE NOTES
-- <source title> — <url>
-- <source title> — <url>
+- title — url
 
-Do not add a generic conclusion. Do not use hype.
-""".strip()
-    return _call(prompt, temperature=0.55, max_tokens=1200)
+ALTERNATE:
+A different evidence-led angle in 3-5 concise lines.
 
+No unsupported claims. No invented source labels.
+"""
+    primary, alternate = _draft_and_rewrite(prompt, "telegram", 0.55, 1500)
+    return f"{primary}\n\nALTERNATE\n{alternate}"
 
 def creative_ideas(mode, request, research):
-    packet = _research_packet(research)
-    profile = _profile()
-
-    if mode == "meme":
-        task = """
-Generate exactly 5 distinct meme/comic concepts.
-
-The comedy must come from a specific human observation in THIS situation,
-not from generic crypto clichés.
-
-Explore different mechanisms such as:
-- deadpan observation
-- absurd consequence
-- social behavior
-- contradiction
-- status games
-- understatement
-- awkward realism
-- visual reversal
-- character interaction
-- text-only comic
-
-Avoid generic moon/FOMO/rocket/rug/trader crying jokes unless the situation
-makes that exact joke unusually specific.
-
-For each concept return:
-MEME 1
-CORE OBSERVATION:
-FORMAT:
-VISUAL:
-TEXT / DIALOGUE:
-PUNCHLINE:
-WHY IT WORKS:
-
-Use short, drawable execution. The punchline should not explain itself.
-"""
-    else:
-        task = """
-Generate exactly 7 strong content ideas.
-
-These are editorial story ideas, not finished posts.
-
-Make the seven ideas materially different. Explore:
-- overlooked detail
-- mechanism
-- consequence
-- human behavior
-- data point
-- misconception
-- practical lesson
-- contradiction
-- timeline
-- business/incentive angle
-- technical explanation
-- cultural angle
-
-For each return:
-IDEA 1
-HOOK:
-ANGLE:
-FORMAT:
-WHY THIS IS WORTH MAKING:
-
-The hook should sound like a creator noticing something, not a news headline.
-Avoid generic phrases such as "why this matters", "the future of", and
-"everything you need to know".
+    patterns = _patterns(request)
+    mode_rules = """
+MEME MODE:
+Return exactly 3 distinct concepts plus one alternate.
+Comedy must come from a specific human observation in the researched situation.
+No generic crypto clichés unless the live pattern data shows they are active.
+Each concept must include FORMAT, OBSERVATION, EXECUTION, PUNCHLINE.
+""" if mode == "meme" else """
+POST IDEA MODE:
+Return exactly 3 distinct story ideas plus one alternate.
+Each must include HOOK and ANGLE.
+Go beyond the headline. Find mechanism, incentive, consequence, behavior,
+misconception, data, timeline, business model, failure mode or practical lesson.
 """
     prompt = f"""
-You are the senior creative director for a crypto creator.
+{_tone_context()}
+
+{_research_requirements()}
+{_base_rules("telegram")}
+{_thinking()}
 
 REQUEST:
 {request}
 
-CREATOR DNA:
-{profile}
+RESEARCH PACKET:
+{_research_packet(research)}
 
-RESEARCH:
-{packet}
+HUMAN PATTERN PASS:
+{patterns}
 
-{task}
+{mode_rules}
 
-Private rules:
-- Research is evidence, not a script.
-- Never invent facts.
-- If the request is current, rely on the evidence supplied.
-- Do not repeat the same thesis in different wording.
-- Reject obvious first-order ideas.
-- Prefer a specific observation over broad commentary.
-- The creator's voice should influence rhythm and taste, not factual claims.
-- Do not write the finished social post unless the requested field explicitly
-  asks for dialogue/text.
-- Think broadly internally, then output only the requested ideas.
-""".strip()
-    return _call(prompt, temperature=0.95, max_tokens=1400)
-
+Return no preamble, no strategy commentary and no source dump.
+"""
+    primary, alternate = _draft_and_rewrite(prompt, "telegram", 0.92, 1200)
+    return f"{primary}\n\nALTERNATE\n{alternate}"
 
 def create_content(request, research):
-    packet = _research_packet(research)
-    profile = _profile()
-
+    platform = "x"
+    low = request.lower()
+    if "telegram" in low:
+        platform = "telegram"
+    if "thread" in low:
+        platform = "x_thread"
+    patterns = _patterns(request)
     prompt = f"""
-You are the final editor and writer for a crypto creator.
+{_tone_context()}
+
+{_research_requirements()}
+{_base_rules(platform)}
+{_thinking()}
 
 REQUEST:
 {request}
 
-CREATOR DNA:
-{profile}
+RESEARCH PACKET:
+{_research_packet(research)}
 
-RESEARCH:
-{packet}
+HUMAN PATTERN PASS:
+{patterns}
 
-Create the requested content at professional creator standard.
+PLATFORM:
+{platform}
 
-PRIVATE EDITORIAL PROCESS:
-1. Determine the exact deliverable and platform implied by the request.
-2. If the request is ambiguous, choose the most natural creator format.
-3. Find one central idea. Do not cram multiple unrelated ideas together.
-4. Use research as evidence. Do not invent facts.
-5. Distinguish confirmed facts from interpretation.
-6. If a claim cannot be verified from the evidence, either qualify it or omit it.
-7. Avoid press-release language, SEO language and generic AI phrasing.
-8. Match the creator DNA: conversational, observant, crypto-native, specific,
-   occasionally funny, never artificially polished.
-9. Use a strong opening. Do not begin with "Today", "Here's why", "Let's talk
-   about", "In the world of crypto", or "Everything you need to know".
-10. Keep useful technical detail when it actually improves understanding.
-11. Cut repetition aggressively.
-12. If the request asks for a thread, make every post advance the story.
-13. If it asks for a meme/comic, give a usable visual script rather than an essay.
-14. If it asks for a post, write a publish-ready post rather than an outline.
-15. Never fabricate a personal experience or say the creator tested/discovered
-   something unless the evidence or request establishes that.
+WRITE THE FINAL CONTENT.
+X: one idea, sharp hook, under 280 characters unless the request explicitly asks for a thread.
+Telegram: conversational, detailed enough to be useful, short paragraphs.
+Threads: each post must stand on its own.
+No headers, bold or bullets in an X post.
+Do not summarize the post at the end.
+Do not fabricate personal experiences.
 
-QUALITY CHECK:
-- Is the first line worth stopping for?
-- Is there one clear idea?
-- Is every factual claim supported?
-- Does it sound human?
-- Does it sound like this creator?
-- Is anything unnecessary?
-- Could the piece be shorter without losing the point?
+Return only the finished primary draft.
+"""
+    primary, alternate = _draft_and_rewrite(prompt, platform, 0.82, 1500)
+    issues = _quality(primary, "x" if platform.startswith("x") else platform)
+    if issues:
+        repair = f"""
+{_tone_context()}
 
-Return ONLY the finished deliverable. No preamble, no explanation, no source list,
-no labels such as "AI generated", and no editorial commentary.
-""".strip()
-    return _call(prompt, temperature=0.82, max_tokens=1500)
+REWRITE THE DRAFT. Fix every deterministic issue: {", ".join(issues)}.
+Preserve the central idea, factual grounding and Tone DNA.
+Return only the repaired draft.
+
+DRAFT:
+{primary}
+"""
+        for _ in range(2):
+            primary = _call(repair, 0.55, 500)
+            issues = _quality(primary, "x" if platform.startswith("x") else platform)
+            if not issues:
+                break
+    alt_issues = _quality(alternate, "x" if platform.startswith("x") else platform)
+    if alt_issues:
+        alternate = _call(
+            f"{_tone_context()}\nRewrite this alternate to remove: {', '.join(alt_issues)}. Return only the alternate.\n{alternate}",
+            0.55, 500
+        )
+    remember_structure(_structure(primary))
+    return f"{primary}\n\nALTERNATE\n{alternate}"
+
+def extract_primary(text):
+    return str(text or "").split("\n\nALTERNATE", 1)[0].strip()
