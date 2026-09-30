@@ -241,7 +241,7 @@ Return only the complete final output.
 PREVIOUS DRAFT:
 {text}
 """
-        text = _call(compact_prompt, 0.72, 1400).strip()
+        text = _call(compact_prompt, 0.72, 900).strip()
         if _within_output_limit(text, limit):
             return text
 
@@ -254,7 +254,7 @@ Produce a complete final response of {limit} characters or fewer.
 Every requested element must be finished. Do not truncate anything.
 Return only the complete response.
 """
-    return _call(final_prompt, 0.62, 1200).strip()
+    return _call(final_prompt, 0.62, 900).strip()
 
 def _repair(text, prompt, platform):
     issues = _quality(text, platform)
@@ -320,7 +320,7 @@ SOURCE NOTES
 Then add one genuinely different alternate angle.
 Do not invent source labels or facts.
 """
-    primary = _one_pass(prompt, "telegram", 0.55, 1500)
+    primary = _one_pass(prompt, "telegram", 0.55, 900)
     primary = _repair(primary, prompt, "telegram")
     return _fit_output(primary, prompt, "telegram")
 
@@ -361,7 +361,7 @@ HUMAN PATTERN DATA:
 Avoid generic crypto clichés unless the live pattern data shows they are active.
 Return no preamble and no process commentary.
 """
-    primary = _one_pass(prompt, "telegram", 0.88, 1400)
+    primary = _one_pass(prompt, "telegram", 0.88, 900)
     primary = _repair(primary, prompt, "telegram")
     return _fit_output(primary, prompt, "telegram")
 
@@ -401,7 +401,7 @@ Vary sentence length and density. Short forms/abbreviations are welcome where na
 For satire or meme requests, identify the real tension first and make the humor specific.
 Return only the finished primary post. No labels, no alternate, no explanation.
 """
-    primary = _one_pass(prompt, platform, 0.82, 1100)
+    primary = _one_pass(prompt, platform, 0.82, 900)
     primary = _repair(primary, prompt, "x" if platform.startswith("x") else platform)
     primary = _fit_output(primary, prompt, platform)
     remember_structure(_structure(primary))
