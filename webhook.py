@@ -27,6 +27,7 @@ from writer import (
     generate_creative_ideas,
 )
 from vision import analyze_image
+from creator_engine import create_content as creator_create_content, research_for_creator, creative_ideas
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -135,8 +136,7 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not research.get("results"):
             await status.edit_text("❌ No useful crypto/Web3 results found.")
             return
-        intelligence = await asyncio.to_thread(generate_intelligence, research, "manual research")
-        intelligence = format_research_output(intelligence)
+        intelligence = await asyncio.to_thread(research_for_creator, query, research)
         await status.delete()
         await send_message(update, intelligence)
     except Exception as exc:
@@ -195,7 +195,7 @@ async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         research = await asyncio.to_thread(search_web, request_text, 8)
         if not research.get("results"):
             research = {"query": request_text, "answer": "", "results": []}
-        ideas = await asyncio.to_thread(generate_creative_ideas, mode, request_text, research)
+        ideas = await asyncio.to_thread(creative_ideas, mode, request_text, research)
         if not ideas:
             raise RuntimeError("No creative ideas were generated.")
         await status.delete()
@@ -265,7 +265,7 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         research = await asyncio.to_thread(search_web, request_text)
         if not research:
             research = {"query": request_text, "results": []}
-        content = await asyncio.to_thread(generate_content, request_text, research)
+        content = await asyncio.to_thread(creator_create_content, request_text, research)
         if not content:
             raise RuntimeError("No content was generated.")
         await status.delete()
@@ -321,8 +321,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not research.get("results"):
                 await status.edit_text("❌ No useful crypto/Web3 research found from the image and request.")
                 return
-            intelligence = await asyncio.to_thread(generate_intelligence, research, "image-assisted manual research")
-            intelligence = format_research_output(intelligence)
+            intelligence = await asyncio.to_thread(research_for_creator, user_instruction or "image-assisted crypto research", research)
             await status.delete()
             await send_message(update, intelligence)
             return
@@ -332,7 +331,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not research:
                 research = {"query": combined_request, "results": []}
             content = await asyncio.to_thread(
-                generate_content,
+                creator_create_content,
                 create_request + "\n\nImage context:\n" + visual_context,
                 research,
             )
@@ -348,7 +347,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await status.edit_text("❌ No useful research found for the image.")
                 return
             ideas = await asyncio.to_thread(
-                generate_ideas,
+                creator_create_content,
                 ideas_request + "\n\nImage context:\n" + visual_context,
                 research,
             )
@@ -382,7 +381,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not research.get("results"):
             await status.edit_text("❌ I couldn't find enough useful research for this image.")
             return
-        ideas = await asyncio.to_thread(generate_creative_ideas, mode, idea_request, research)
+        ideas = await asyncio.to_thread(creative_ideas, mode, idea_request, research)
         if not ideas:
             raise RuntimeError("No creative ideas were generated.")
         await status.delete()
