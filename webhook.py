@@ -347,7 +347,7 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await status.edit_text("❌ No useful research found for the image.")
                 return
             ideas = await asyncio.to_thread(
-                creator_create_content,
+                generate_ideas,
                 ideas_request + "\n\nImage context:\n" + visual_context,
                 research,
             )
