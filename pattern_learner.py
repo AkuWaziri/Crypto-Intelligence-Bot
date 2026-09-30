@@ -41,7 +41,7 @@ def _fetch_x(topic):
             X_API_BASE,
             headers={"Authorization": f"Bearer {token}"},
             params=params,
-            timeout=25,
+            timeout=7,
         )
         response.raise_for_status()
         payload = response.json()
