@@ -1,115 +1,77 @@
 # Crypto Intelligence Telegram Bot
 
-A simple crypto/Web3 research bot that researches emerging developments and sends useful intelligence to Telegram.
+An adaptive crypto/Web3 research and creator assistant. Commands accept natural language instead of forcing you to learn rigid subcommands. The bot interprets the request, checks attached or replied-to material, decides whether fresh research is useful, searches relevant sources, and chooses an output format that matches the task.
 
-## What it does
+## Adaptive commands
 
-The bot researches:
+- `/research <request>` — investigate a topic, claim, post, screenshot, protocol, or opportunity.
+- `/idea <request>` — discover different content angles, investigate what is really happening, or find the strongest story inside a post.
+- `/create <request>` — write a discovery, analysis, rewrite, explainer, guide, or other requested content.
+- `/generate <request>` — create the requested artifact, including text-based ASCII/Unicode banners and diagrams.
+- `/feed` — run the scheduled intelligence feed manually.
+- `/niches` — list configured research niches.
+- `/addniche <niche>` — add a research niche.
+- `/start`, `/help` — show bot help.
 
-- AI tools
-- AI agents
-- AI infrastructure
-- AI + blockchain
-- Crypto payments
-- Airdrops
-- Rewards
-- Campaigns
-- Claim opportunities
-- Ending-soon opportunities
-- Crypto opportunities
-- New protocols
-- New products
-- Wallet movements
-- Smart money
-- Smart contracts
-- Contract vulnerabilities
-- Security issues
-- Exploits
-- Protocol updates
-- New launches
-- Emerging narratives
-- Crypto infrastructure
+The command is a hint, not a fixed template. The bot uses the full sentence to infer the actual task.
 
-It also accepts arbitrary research requests through Telegram.
+### Example requests
 
-## Telegram commands
+```text
+/idea find other content categories hidden in this post
+/idea what's really happening underneath this post?
+/idea find the overlooked mechanism and the strongest evidence
+/create recreate this post as a discovery, not a news summary
+/create analyse this post and explain the mechanism
+/create turn these findings into a concise thread
+/research investigate this claim and find primary sources
+/generate make a polished ASCII banner about stablecoin payments
+/generate draw a terminal-style flow diagram showing how this protocol works
+```
 
-/start
+### Use attached posts and screenshots
 
-/help
+1. Send a post or screenshot, then reply to it with a command such as `/idea what's the real story here?`.
+2. Alternatively, attach a screenshot and put the command in its caption.
+3. The bot extracts visible context, searches the underlying subject when useful, and distinguishes source evidence from interpretation.
 
-/niches
+Images are analysed with the configured vision model. Research-led answers include real source links when available. The bot should state uncertainty rather than invent missing evidence.
 
-/research <topic>
+Note: Telegram text cannot apply arbitrary font colours to plain text. ASCII/Unicode banners can use box-drawing characters, aligned rules, and coloured-block symbols to create a polished terminal-style look.
 
-/addniche <niche>
+## Research coverage
 
-/feed
-
-Examples:
-
-/research AI agents
-
-/research crypto payments
-
-/research new crypto opportunities
-
-/research wallet movements
-
-/research suspicious smart contracts
+The research engine searches across emerging AI tools and agents, AI infrastructure, AI + blockchain, crypto payments, airdrops and rewards, claim opportunities, new protocols and products, wallet movements, smart money, smart contracts, vulnerabilities, exploits, protocol updates, launches, emerging narratives, and crypto infrastructure.
 
 ## Automatic feed
 
-The bot automatically researches several niches periodically.
+The automatic research feed runs periodically. The default interval is controlled by `RESEARCH_INTERVAL_MINUTES`.
 
-Default interval:
-
-45 minutes
-
-The interval can be changed with:
-
-RESEARCH_INTERVAL_MINUTES
-
-## Writing system
+## Creator writing profile
 
 The writer uses:
 
-writer_profile/examples.txt
+- `writer_profile/examples.txt`
+- `writer_profile/patterns.txt`
+- `writer_profile/rules.txt`
 
-writer_profile/patterns.txt
+Add approved writing examples to the profile files to improve the fit of generated content.
 
-writer_profile/rules.txt
+## Environment variables
 
-Add your own posts to examples.txt to progressively improve the writing style.
+Required for core operation:
 
-## Required environment variables
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID` (for scheduled feed delivery)
+- `GROQ_API_KEY` (for language and image analysis)
 
-TELEGRAM_BOT_TOKEN
-
-TELEGRAM_CHAT_ID
-
-TAVILY_API_KEY
-
-GEMINI_API_KEY
-
-GEMINI_MODEL
+Configure the model names and research settings through the existing environment variables in `config.py`, `vision.py`, and `image_generator.py`.
 
 ## Local installation
 
-Create a virtual environment:
-
+```powershell
 python -m venv .venv
-
-Activate it on Windows:
-
-.venv\Scripts\activate
-
-Install dependencies:
-
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-Create a .env file and add the required API keys.
-
-Run:
-
 python bot.py
+```

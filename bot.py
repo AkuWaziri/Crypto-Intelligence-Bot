@@ -1,6 +1,7 @@
 import asyncio
 import html
 import logging
+import re
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -8,13 +9,13 @@ from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from niches import get_niches, add_niche
-from research import search_web
-from writer import generate_intelligence, generate_content
-from research_output import format_research_output
+from dynamic_engine import run_dynamic_task
 
 logging.basicConfig(
     level=logging.INFO
@@ -109,7 +110,7 @@ async def add_niche_command(
 
     if not context.args:
         await update.message.reply_text(
-            "Usage:\n/addniche <niche>"
+            "Usage:\n/addniche &lt;niche&gt;"
         )
         return
 
@@ -142,152 +143,111 @@ async def add_niche_command(
         )
 
 
-async def research_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    if not update.message:
+async def _run_adaptive_command(update, context, command, request_text=None):
+    message = update.effective_message
+    if not message:
         return
 
-    if not context.args:
-        await update.message.reply_text(
-            "Usage:\n"
-            "/research <topic>\n\n"
-            "Example:\n"
-            "/research AI agents"
-        )
-        return
-
-    query = " ".join(
-        context.args
-    ).strip()
-
-    status = await update.message.reply_text(
-        f"🔎 Researching:\n{query}"
+    request = (
+        str(request_text).strip()
+        if request_text is not None
+        else " ".join(context.args or []).strip()
     )
+    source_message = message.reply_to_message
+    if source_message is None and message.photo:
+        source_message = message
+
+    context_parts = []
+    image_bytes = None
+
+    if source_message:
+        source_text = source_message.text or source_message.caption or ""
+        if source_text:
+            context_parts.append(source_text.strip())
+
+        photo = source_message.photo
+        if photo:
+            try:
+                telegram_file = await context.bot.get_file(photo[-1].file_id)
+                image_bytes = bytes(await telegram_file.download_as_bytearray())
+            except Exception:
+                logger.exception("Could not download the attached image.")
+                await message.reply_text(
+                    "I could read the message, but couldn't download its image. "
+                    "Please resend the image or try again."
+                )
+                return
+
+    # If the command was sent as a photo caption, strip the command itself from context.
+    if message.photo and message.caption:
+        caption = re.sub(r"^/\w+(?:@\w+)?\s*", "", message.caption).strip()
+        if caption and caption not in context_parts:
+            context_parts.append(caption)
+
+    material = "\n\n".join(part for part in context_parts if part).strip()
+    status_text = {
+        "research": "🔎 Interpreting your request and researching relevant sources...",
+        "idea": "🧠 Finding the real story and strongest angles...",
+        "create": "✍️ Working out the best format, researching, and creating...",
+        "generate": "🎨 Interpreting the request and building the output...",
+    }.get(command, "🧠 Working on it...")
+    status = await message.reply_text(status_text)
 
     try:
-        research = await asyncio.to_thread(
-            search_web,
-            query,
-        )
-
-        if not research.get("results"):
-            await status.edit_text(
-                "❌ No useful crypto/Web3 "
-                "results found."
-            )
-            return
-
-        intelligence = await asyncio.to_thread(
-            generate_intelligence,
-            research,
-            "manual research",
-        )
-
-        intelligence = format_research_output(
-            intelligence
-        )
-
-        await status.delete()
-
-        await send_long_message(
-            update,
-            intelligence,
-        )
-
-    except Exception as exc:
-        logger.exception(
-            "Research failed."
-        )
-
-        error_text = html.escape(
-            str(exc)
-        )
-
-        try:
-            await status.edit_text(
-                f"❌ Research failed.\n\n"
-                f"{error_text}",
-                parse_mode=ParseMode.HTML,
-            )
-        except Exception:
-            await update.message.reply_text(
-                f"❌ Research failed.\n\n"
-                f"{error_text}",
-                parse_mode=ParseMode.HTML,
-            )
-
-
-async def create_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    if not update.message:
-        return
-
-    if not context.args:
-        await update.message.reply_text(
-            "Usage:\n"
-            "/create <what you want to create>\n\n"
-            "Examples:\n"
-            "/create Crypto GM post\n"
-            "/create Monday GM post\n"
-            "/create funny post about CT\n"
-            "/create bullish post about AI agents\n"
-            "/create post about today's BTC move\n"
-            "/create explain the latest Base development"
-        )
-        return
-
-    request = " ".join(
-        context.args
-    ).strip()
-
-    status = await update.message.reply_text(
-        "✍️ Creating your post..."
-    )
-
-    try:
-        content = await asyncio.to_thread(
-            generate_content,
+        output = await asyncio.to_thread(
+            run_dynamic_task,
+            command,
             request,
+            material,
+            image_bytes,
         )
-
-        if not content:
-            await status.edit_text(
-                "❌ I couldn't create the requested content."
-            )
-            return
-
-        await status.delete()
-
-        await send_long_message(
-            update,
-            content,
-        )
-
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await send_long_message(update, output)
     except Exception as exc:
-        logger.exception(
-            "Create failed."
-        )
-
-        error_text = html.escape(
-            str(exc)
-        )
-
+        logger.exception("Adaptive /%s task failed.", command)
+        error_text = html.escape(str(exc))
         try:
             await status.edit_text(
-                "❌ Create failed.\n\n"
-                f"{error_text}",
+                f"❌ {command.capitalize()} failed.\n\n{error_text}",
                 parse_mode=ParseMode.HTML,
             )
         except Exception:
-            await update.message.reply_text(
-                "❌ Create failed.\n\n"
-                f"{error_text}",
+            await message.reply_text(
+                f"❌ {command.capitalize()} failed.\n\n{error_text}",
                 parse_mode=ParseMode.HTML,
             )
+
+
+async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _run_adaptive_command(update, context, "research")
+
+
+async def idea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _run_adaptive_command(update, context, "idea")
+
+
+async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _run_adaptive_command(update, context, "create")
+
+
+async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _run_adaptive_command(update, context, "generate")
+
+
+async def photo_caption_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Support commands written directly in a photo caption."""
+    message = update.effective_message
+    if not message or not message.photo or not message.caption:
+        return
+    match = re.match(r"^/(idea|create|generate|research)(?:@\w+)?(?:\s+(.*))?$", message.caption.strip(), re.I | re.S)
+    if not match:
+        return
+    command = match.group(1).lower()
+    request = (match.group(2) or "").strip()
+    await _run_adaptive_command(update, context, command, request_text=request)
 
 
 async def feed_command(
@@ -353,18 +313,12 @@ def setup_handlers():
         )
     )
 
+    telegram_app.add_handler(CommandHandler("research", research_command))
+    telegram_app.add_handler(CommandHandler("idea", idea_command))
+    telegram_app.add_handler(CommandHandler("create", create_command))
+    telegram_app.add_handler(CommandHandler("generate", generate_command))
     telegram_app.add_handler(
-        CommandHandler(
-            "research",
-            research_command,
-        )
-    )
-
-    telegram_app.add_handler(
-        CommandHandler(
-            "create",
-            create_command,
-        )
+        MessageHandler(filters.PHOTO & filters.CAPTION, photo_caption_command)
     )
 
     telegram_app.add_handler(
@@ -392,34 +346,23 @@ Research crypto/Web3 and create content from your creator profile.
 /start — start the bot
 /help — show commands
 /niches — show research niches
-/research <topic> — research anything
-/create <request> — create ready-to-post content
-/addniche <niche> — add a research niche
+/research &lt;request&gt; — investigate a topic, post, claim, or screenshot
+/idea &lt;request&gt; — discover angles, ideas, or investigate a post
+/create &lt;request&gt; — create content, findings, rewrites, or analysis
+/generate &lt;request&gt; — generate a requested artifact, including ASCII banners
+/addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
-<b>Create examples</b>
+<b>Use natural language</b>
 
-/create Crypto GM post
+Reply to a post or screenshot with a command, or attach a screenshot with the command in its caption.
 
-/create Monday GM post
-
-/create funny post about CT
-
-/create bullish post about AI agents
-
-/create post about today's BTC move
-
-/create explain the latest Base development
-
-<b>Research examples</b>
-
-/research AI agents
-
-/research crypto payments
-
-/research suspicious smart contracts
-
-/research wallets moving BTC
+/idea find other content angles from this post
+/idea what's really happening underneath this post?
+/create recreate this post as a discovery with evidence
+/create analyse this post and explain the mechanism
+/research investigate this claim and find primary sources
+/generate make a polished ASCII banner about stablecoin payments
 """
 
 telegram_app = (
