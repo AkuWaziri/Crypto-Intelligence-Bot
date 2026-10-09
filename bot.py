@@ -180,11 +180,11 @@ async def _run_adaptive_command(update, context, command, request_text=None):
 
     # If the command was sent as a photo caption, strip the command itself from context.
     if message.photo and message.caption:
-        caption = re.sub(r"^/\\w+(?:@\\w+)?\\s*", "", message.caption).strip()
+        caption = re.sub(r"^/\w+(?:@\w+)?\s*", "", message.caption).strip()
         if caption and caption not in context_parts:
             context_parts.append(caption)
 
-    material = "\\n\\n".join(part for part in context_parts if part).strip()
+    material = "\n\n".join(part for part in context_parts if part).strip()
     status_text = {
         "research": "🔎 Interpreting your request and researching relevant sources...",
         "idea": "🧠 Finding the real story and strongest angles...",
@@ -211,12 +211,12 @@ async def _run_adaptive_command(update, context, command, request_text=None):
         error_text = html.escape(str(exc))
         try:
             await status.edit_text(
-                f"❌ {command.capitalize()} failed.\\n\\n{error_text}",
+                f"❌ {command.capitalize()} failed.\n\n{error_text}",
                 parse_mode=ParseMode.HTML,
             )
         except Exception:
             await message.reply_text(
-                f"❌ {command.capitalize()} failed.\\n\\n{error_text}",
+                f"❌ {command.capitalize()} failed.\n\n{error_text}",
                 parse_mode=ParseMode.HTML,
             )
 
@@ -242,7 +242,7 @@ async def photo_caption_command(update: Update, context: ContextTypes.DEFAULT_TY
     message = update.effective_message
     if not message or not message.photo or not message.caption:
         return
-    match = re.match(r"^/(idea|create|generate|research)(?:@\\w+)?(?:\\s+(.*))?$", message.caption.strip(), re.I | re.S)
+    match = re.match(r"^/(idea|create|generate|research)(?:@\w+)?(?:\s+(.*))?$", message.caption.strip(), re.I | re.S)
     if not match:
         return
     command = match.group(1).lower()
