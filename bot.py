@@ -110,7 +110,7 @@ async def add_niche_command(
 
     if not context.args:
         await update.message.reply_text(
-            "Usage:\n/addniche <niche>"
+            "Usage:\n/addniche &lt;niche&gt;"
         )
         return
 
@@ -346,11 +346,11 @@ Research crypto/Web3 and create content from your creator profile.
 /start — start the bot
 /help — show commands
 /niches — show research niches
-/research <request> — investigate a topic, post, claim, or screenshot
-/idea <request> — discover angles, ideas, or investigate a post
-/create <request> — create content, findings, rewrites, or analysis
-/generate <request> — generate a requested artifact, including ASCII banners
-/addniche <niche> — add a research niche
+/research &lt;request&gt; — investigate a topic, post, claim, or screenshot
+/idea &lt;request&gt; — discover angles, ideas, or investigate a post
+/create &lt;request&gt; — create content, findings, rewrites, or analysis
+/generate &lt;request&gt; — generate a requested artifact, including ASCII banners
+/addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
 <b>Use natural language</b>
