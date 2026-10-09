@@ -64,7 +64,7 @@ Required for core operation:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID` (for scheduled feed delivery)
 - `GROQ_API_KEY`
-- `GEMINI_API_KEY` (for image analysis)
+- `GROQ_API_KEY` (for language and image analysis)
 
 Configure the model names and research settings through the existing environment variables in `config.py`, `vision.py`, and `image_generator.py`.
 
