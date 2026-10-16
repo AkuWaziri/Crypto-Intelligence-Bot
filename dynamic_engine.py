@@ -158,12 +158,24 @@ def run_dynamic_task(command, request, context_text="", image_bytes=None):
 
     needs_research = bool(plan.get("needs_research"))
     search_query = str(plan.get("search_query") or "").strip()
-    research = None
 
+    # /howto is research-first by default, including when the user types only keywords.
+    # Do not let a planner response silently skip research or leave the query empty.
+    if command in {"howto", "how_to"}:
+        needs_research = True
+        if not search_query:
+            search_query = request or context_text[:700]
+        if search_query:
+            search_query += (
+                " official sources documentation step-by-step guide current requirements "
+                "costs limitations risks"
+            )
+
+    research = None
     if needs_research and search_query:
         research_input = search_query
         if context_text:
-            research_input += "\n\nImage context: " + context_text[:2500]
+            research_input += "\n\nAttached/replied-to context: " + context_text[:2500]
         research = search_web(research_input)
 
     research_text = _research_packet(research)
