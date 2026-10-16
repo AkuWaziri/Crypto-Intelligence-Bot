@@ -81,10 +81,11 @@ def _safe_json(text):
 def _research_packet(research):
     if not research:
         return "No external research was requested or returned."
+    is_critical = str(research.get("query", "")).lower().startswith("__critical_compact__ ")
     return build_research_text(
         research,
-        max_results=12,
-        max_content_chars=750,
+        max_results=4 if is_critical else 12,
+        max_content_chars=350 if is_critical else 750,
     )
 
 
@@ -186,6 +187,10 @@ def run_dynamic_task(command, request, context_text="", image_bytes=None):
             research_input += "\n\nAttached/replied-to context: " + context_text[:2500]
         research = search_web(research_input)
 
+    if research and command in {"critical", "critical_analysis"}:
+        research = dict(research)
+        research["query"] = "__critical_compact__ " + str(research.get("query", ""))
+
     research_text = _research_packet(research)
     source_list = []
     if research:
@@ -196,6 +201,8 @@ def run_dynamic_task(command, request, context_text="", image_bytes=None):
             if url and url not in seen:
                 seen.add(url)
                 source_list.append(f"- {title}\n  {url}")
+                if command in {"critical", "critical_analysis"} and len(source_list) >= 4:
+                    break
     sources = "\n".join(source_list) if source_list else "No external sources were retrieved."
 
     howto_dna = _howto_dna() if command in {"howto", "how_to"} else ""
@@ -271,16 +278,41 @@ COMMAND-SPECIFIC EXPECTATIONS:
 - Keep Telegram readability in mind. Avoid giant unbroken paragraphs.
 - Return the finished result only.
 """
+    is_critical = command in {"critical", "critical_analysis"}
+    if is_critical:
+        final_prompt = f"""
+Analyze the user's topic/post using the evidence below. Be concise and natural.
+Do not overthink or write a report. Maximum 120 words before sources.
+State the most important finding, the evidence or number that matters, and one critical caveat.
+Separate confirmed fact from inference. If evidence is outdated, conflicting, or insufficient, say so.
+Do not invent dates, figures, approvals, listings, or claims. Do not create or guess URLs.
+Use only the supplied evidence and source list. Avoid generic introductions, repeated claims,
+multiple conclusions, and markdown-heavy formatting.
+
+REQUEST: {request or "(analyze attached/replied-to material)"}
+ATTACHED CONTEXT: {context_text[:900] or "(none)"}
+EVIDENCE: {research_text[:5000]}
+SOURCES AVAILABLE: {sources}
+
+Return only the concise analysis. Do not include a SOURCES section; links are appended separately.
+""".strip()
+
     output = call_writer(
         final_prompt,
-        temperature=0.72 if command == "research" else 0.88,
-        max_tokens=300 if command in {"critical", "critical_analysis"} else 450,
+        temperature=0.25 if is_critical else (0.72 if command == "research" else 0.88),
+        max_tokens=220 if is_critical else 450,
     ).strip()
 
     if not output:
         raise RuntimeError("The assistant could not produce an output for this request.")
 
-    # Attach real sources for research-led tasks, without making up any.
-    if source_list and needs_research and not re.search(r"https?://", output):
+    # Always append a short, deduplicated list of retrieved links for /critical.
+    if is_critical:
+        output = re.sub(r"(?is)\n\s*(?:SOURCES|REFERENCES)\s*\n.*$", "", output).strip()
+        if source_list:
+            output += "\n\nSources\n" + "\n".join(source_list[:4])
+        else:
+            output += "\n\nNo usable source links were retrieved; treat this as unverified."
+    elif source_list and needs_research and not re.search(r"https?://", output):
         output += "\n\nSOURCES\n" + sources
     return output
