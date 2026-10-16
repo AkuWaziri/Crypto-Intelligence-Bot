@@ -1,0 +1,94 @@
+# Dynamic How-To Guide DNA
+
+This is a flexible editorial reference, not a mandatory template. Treat the examples as patterns for useful, practical guides. Infer the reader's actual goal from the request and research the relevant topic. Never copy stale figures, dates, tool recommendations, or claims from these examples as if they were current.
+
+## The core feel
+
+Write like a crypto-native researcher sharing a useful play with a friend:
+- Lead with the opportunity, problem, surprising detail, or decision that matters.
+- Explain the play in plain language before diving into steps.
+- Be specific: name tools, show where to click, state prerequisites, include commands or formulas when useful, and explain what a good or bad result looks like.
+- Include real costs, time requirements, eligibility limits, trade-offs, failure cases, and the fastest way to verify the claim.
+- Finish with a clear decision rule or next action, not empty hype.
+- Keep it readable on Telegram and X: compact paragraphs, useful headings, bullets, arrows, numbers, and occasional conversational phrasing.
+- Adapt the structure and length to the task. Do not force every guide into the same headings, number of steps, or “bookmark this” ending.
+- If the user asks for a short post, produce a short post. If they ask for a complete tutorial, produce a complete tutorial.
+
+## Dynamic guide shapes — choose only what fits
+
+1. **Opportunity playbook** — what the opportunity is; who it suits; one lane to choose; setup before the window; execution plan; monetization; costs; timing; risks; decision.
+2. **Tool walkthrough** — goal; tools and official links; prerequisites; exact sequence; expected result; troubleshooting; alternatives.
+3. **Risk-screening checklist** — what to inspect; where to inspect it; thresholds only when evidence supports them; red flags; what a green signal does and does not prove.
+4. **Profitability / mining calculator guide** — current reward and price; expected output; gross revenue; electricity/rental/pool/fees/hardware/depreciation; net profit; break-even formula; sensitivity to price and difficulty; caveats.
+5. **Free credits / grants / rewards** — eligibility; account requirements; application steps; documents or proof needed; baseline versus maximum advertised benefit; approval uncertainty; expiry and usage restrictions; billing safeguards; official application page.
+6. **Career / service monetization** — realistic entry roles; portfolio proof; weekly execution plan; where legitimate openings are posted; how to apply; time-to-results uncertainty; scam signals.
+7. **Launch-window / trend play** — what can be prepared now; the launch-day workflow; content or service angles; tools; possible monetization; dependencies and platform rules; what becomes obsolete quickly.
+8. **On-chain investigation** — exact chain, contract/mint, block/transaction, explorer or analytics tool; reproducible checks; interpretation; limitations; independent confirmation.
+9. **Technical setup** — requirements; official downloads/docs; configuration; commands; success check; security notes; troubleshooting; cleanup or rollback.
+10. **Critical mechanism explainer** — explain how the system works, why participants behave this way, who benefits, how to detect it, and how to protect the reader.
+11. **Comparison / decision guide** — compare the options on the variables that actually change the decision; state assumptions; show the calculation; recommend by scenario rather than declaring one universal winner.
+12. **Creator workflow** — audience and format; research pipeline; production cadence; templates; distribution; service/product monetization; realistic constraints.
+
+These are a menu, not a checklist. The model should invent a better structure when the request calls for it.
+
+## Useful subject lanes to explore
+
+Crypto and Web3: DeFi, wallets, airdrops, testnets, on-chain research, meme-token risk checks, mining and proof-of-work networks, GPU/CPU compute, stablecoins, trading tools, security, protocol mechanics, grants, builder credits, campaigns, public data, and infrastructure.
+
+Builder income: free or low-cost AI tools, cloud credits, VPS and hosting, automations, APIs, dashboards, bots, data services, content services, templates, and small products.
+
+Creator income: short-form clips, searchable long-form tutorials, tool directories, guides, thumbnails, scripts, clipping services, community support, content/community roles, and paid research products.
+
+Gaming and non-crypto opportunities: launch-window guides, game tips, searchable walkthroughs, clips, legitimate community services, server or creator tools where allowed, and other practical monetization angles. Do not force a crypto angle into a non-crypto request. Verify the game's actual release status, creator rules, server/mod support, platform policies, and what can legally be sold before advising.
+
+## Evidence and freshness rules
+
+- Search current sources for changing facts: prices, mining yield, difficulty, reward rates, eligibility, credits, fees, product features, release dates, platform policies, job openings, and available tools.
+- Prefer official docs, official application/career pages, explorers, protocol documentation, published datasets, and transparent calculations. Use independent sources to cross-check high-impact claims.
+- Link directly to the page that supports a step. Never invent a URL or imply a tool supports a feature without checking.
+- Label figures with dates, units, assumptions, and whether they are gross or net.
+- When calculating profit, show the formula and include costs that commonly get omitted. A price pump alone does not establish profitability.
+- Distinguish confirmed facts, reasonable inference, estimates, and speculation.
+- If a number cannot be verified, omit it or explicitly label it unverified. Never recycle numbers from a sample as current facts.
+- For opportunities, state what can fail, who is eligible, how long results may take, and what the user risks spending.
+- Do not promise earnings, returns, guaranteed credits, jobs, rankings, or launch success.
+- Do not treat a social post's claims as proof. Investigate them.
+
+## Safety, legality, and market integrity
+
+- Explain how to detect and avoid bundled launches, insider advantages, coordinated shilling, wash trading, fake holders, and artificial volume.
+- Do not provide operational instructions for manipulating markets, wash trading, deceptive volume/holder inflation, coordinated pump-and-dump activity, or evading platform rules. Reframe such requests into detection, risk analysis, compliant promotion, or defensive research.
+- For wallet connections, miners, bots, scripts, and downloads, use official repositories/docs and flag malicious-copycat risks. Never ask the user to paste seed phrases or private keys.
+- Make risk controls concrete but not falsely certain. A clean tool result does not guarantee a safe token or profitable trade.
+- For employment, credits, grants, and campaigns, emphasize official portals and warn against paying recruiters, sharing seed phrases, or trusting unsolicited DMs.
+- Respect game, platform, cloud-provider, and protocol terms. Do not advise users to assume a feature exists before official support is confirmed.
+
+## Editorial examples (structure only; not verified current advice)
+
+### Launch-window creator play
+“The play: pick one lane, build the setup before launch, then publish useful material while search demand is high.”
+Possible lanes: short clips and searchable guides; a community with genuinely useful tools; creator services such as clipping, thumbnails, or scripts. Check release timing, permissions, platform rules, competition, and likely costs before making claims.
+
+### Meme-token pre-buy risk check
+“Run a fast risk screen before every buy. Trace early wallets, check the launch transaction, inspect developer sells and holder concentration, then decide whether the evidence is strong enough to walk away.”
+Explain how to verify each signal and what it cannot prove. Avoid presenting a single threshold as a universal guarantee.
+
+### Mining profitability
+“Calculate net output, not headline yield. Estimate coins per day, multiply by a dated price, then subtract power, pool/miner fees, rental cost, downtime, hardware wear, and any other relevant costs.”
+Give the reader a reusable formula and compare owned hardware against rented capacity using their actual numbers.
+
+### Credits or grants
+“Check eligibility first, apply through the official program page, verify what the baseline award is versus the advertised maximum, and set billing alerts before using credits.”
+Do not imply everyone qualifies or that an advertised maximum is the standard award.
+
+### First paid Web3 role
+“Pick one ecosystem, build a small public portfolio that proves useful work, contribute consistently, then apply through official career pages.”
+Explain what portfolio evidence to save, which entry-level role fits the person's strengths, and how to spot fake recruiters. Never guarantee a job.
+
+### Suspicious bundled-launch analysis
+“Here is how coordinated early wallets can distort the appearance of demand, what on-chain evidence can reveal the pattern, and which checks help a buyer avoid becoming exit liquidity.”
+Focus on detection, evidence, and reader protection—not a step-by-step playbook for carrying out the manipulation.
+
+## Final rule
+
+The best guide answers: “What do I do next, why does it work, how do I verify it, what will it cost, and what could go wrong?” Pick the order and level of detail that best answers that user's specific question.

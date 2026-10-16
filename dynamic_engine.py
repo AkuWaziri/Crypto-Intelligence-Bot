@@ -3,9 +3,14 @@ import logging
 import re
 
 from research import search_web
-from writer import call_writer, build_research_text
+from writer import call_writer, build_research_text, read_profile_file
 
 logger = logging.getLogger(__name__)
+
+
+def _howto_dna():
+    """Load the editable guide-writing DNA without hard-coding one guide template."""
+    return read_profile_file("howto_dna.txt")
 
 
 PLANNER_PROMPT = """
@@ -35,9 +40,11 @@ Rules:
   of text where outside facts add no value.
 - If the user explicitly asks to analyse, fact-check, investigate, explain, or find what is
   really happening, research is required.
-- /howto means practical, reproducible, step-by-step instructions. Research current tools, prerequisites,
-  costs/limits, safety risks, and primary documentation when relevant. Include commands or examples
-  when useful; distinguish free options from paid ones and never invent working steps.
+- /howto means practical, reproducible instructions, but the user's actual goal determines the guide shape.
+  Load the how-to DNA as a flexible style and structure library, not as a fixed template. Choose or invent
+  the most useful structure for this request. Research current tools, prerequisites, costs/limits, safety
+  risks, and primary documentation when relevant. Include commands or examples when useful; distinguish
+  free options from paid ones and never invent working steps. For changing facts, verify current sources.
 - /critical and /critical_analysis mean critical-detail analysis: inspect the exact claim or artifact,
   identify the most consequential overlooked detail, mechanism, assumptions, numbers, dependencies,
   incentives, edge cases, risks, and what evidence would confirm or disprove the interpretation.
@@ -171,6 +178,8 @@ def run_dynamic_task(command, request, context_text="", image_bytes=None):
                 source_list.append(f"- {title}\n  {url}")
     sources = "\n".join(source_list) if source_list else "No external sources were retrieved."
 
+    howto_dna = _howto_dna() if command in {"howto", "how_to"} else ""
+
     final_prompt = f"""
 You are the user's adaptable research partner, analyst, editor and creative assistant.
 Respond to the actual request, not to a rigid command template. The command is only a hint.
@@ -192,6 +201,9 @@ OUTPUT TYPE:
 FOCUS:
 {plan.get('focus', '')}
 
+HOW-TO WRITING DNA (apply only when relevant; examples are patterns, never current facts):
+{howto_dna or '(Not loaded for this command.)'}
+
 RESEARCH EVIDENCE:
 {research_text}
 
@@ -199,11 +211,17 @@ SOURCE LINKS:
 {sources}
 
 COMMAND-SPECIFIC EXPECTATIONS:
-- /howto (and /how_to): deliver an actionable guide, not a high-level overview. Start with the intended
-  result and prerequisites, then give ordered steps, exact settings/commands/examples where justified,
-  expected results, common failure points, cost/free-tier notes when relevant, and source links for
-  important claims. Adapt the level to the user's wording. If a step depends on current product behavior,
-  search and verify it. Never describe an unsafe or impossible shortcut as guaranteed.
+- /howto (and /how_to): use HOW-TO WRITING DNA as an adaptable reference. Infer the actual job-to-be-done
+  and choose the best structure for that subject: opportunity playbook, tool walkthrough, risk checklist,
+  mining/profitability calculation, credits/grants, career/service monetization, launch-window plan,
+  on-chain investigation, technical setup, critical mechanism explainer, comparison, creator workflow, or
+  another structure that fits better. Do not force the same headings, length, or sequence onto every answer.
+  Start with the useful result or decision; give concrete steps, tools and official references where relevant;
+  include prerequisites, expected outcomes, costs, limits, risks, common failure points, and a practical next
+  action as appropriate. Verify time-sensitive facts. Treat all examples as style guidance, not current facts.
+  Never promise income or present risky shortcuts as guaranteed. For requests to manipulate markets, inflate
+  volume/holders, or coordinate deceptive shilling, provide defensive analysis and detection guidance instead
+  of operational instructions.
 - /critical, /critical_analysis: deliver a critical-detail analysis, not generic pros and cons. Lead with
   the single most important overlooked detail; explain the mechanism behind it; inspect numbers,
   assumptions, incentives, dependencies, trade-offs, failure modes, and who benefits; distinguish fact,
