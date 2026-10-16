@@ -28,6 +28,7 @@ from writer import (
 )
 from vision import analyze_image
 from creator_engine import create_content as creator_create_content, research_for_creator, creative_ideas
+from dynamic_engine import run_dynamic_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,6 +56,8 @@ Research crypto/Web3 and turn useful discoveries into content intelligence.
 /idea — discover creative content ideas
 /ideas &lt;topic&gt; — legacy idea generator
 /create &lt;request&gt; — research and create content
+/howto &lt;request&gt; — practical guide with source links
+/critical &lt;request&gt; — concise critical analysis with evidence links
 /addniche &lt;niche&gt; — add a research niche
 
 <b>Image support</b>
@@ -122,6 +125,60 @@ async def add_niche_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as exc:
         logger.exception("Failed to add niche.")
         await update.message.reply_text(f"❌ Could not add niche.\n\n{exc}")
+
+
+async def adaptive_command(update: Update, context: ContextTypes.DEFAULT_TYPE, command: str, request_text=None):
+    """Handle adaptive commands on the active webhook service."""
+    message = update.effective_message
+    if not message:
+        return
+    request = str(request_text).strip() if request_text is not None else " ".join(context.args or []).strip()
+    source_message = message.reply_to_message
+    if source_message is None and message.photo:
+        source_message = message
+    context_parts = []
+    image_bytes = None
+    if source_message:
+        source_text = source_message.text or source_message.caption or ""
+        if source_text:
+            context_parts.append(source_text.strip())
+        if source_message.photo:
+            try:
+                photo_file = await context.bot.get_file(source_message.photo[-1].file_id)
+                image_bytes = bytes(await photo_file.download_as_bytearray())
+            except Exception:
+                logger.exception("Could not download the image for /%s.", command)
+                await message.reply_text("I couldn't download that image. Please resend it or try again.")
+                return
+    if message.photo and message.caption:
+        caption_text = re.sub(r"^/\w+(?:@\w+)?\s*", "", message.caption).strip()
+        if caption_text and caption_text not in context_parts:
+            context_parts.append(caption_text)
+    material = "\n\n".join(part for part in context_parts if part).strip()
+    status_text = "🔎 Checking evidence and the key detail..." if command in {"critical", "critical_analysis"} else "🛠️ Finding practical steps and useful references..."
+    status = await message.reply_text(status_text)
+    try:
+        output = await asyncio.to_thread(run_dynamic_task, command, request, material, image_bytes)
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await send_message(update, output)
+    except Exception as exc:
+        logger.exception("Adaptive /%s task failed.", command)
+        try:
+            await status.edit_text(f"❌ {command} failed.\n\n{str(exc)[:1200]}")
+        except Exception:
+            await message.reply_text(f"❌ {command} failed.\n\n{str(exc)[:1200]}")
+
+
+async def howto_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await adaptive_command(update, context, "howto")
+
+
+async def critical_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await adaptive_command(update, context, "critical")
+
 
 async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -290,11 +347,15 @@ async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message or not message.photo or not message.caption:
         return
     caption = message.caption.strip()
-    match = re.match(r"^/(research|idea|ideas|create)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
+    match = re.match(r"^/(research|idea|ideas|create|howto|how_to|critical|critical_analysis)(?:@\w+)?(?:\s+(.*))?$", caption, re.IGNORECASE | re.DOTALL)
     if not match:
         return
     command = match.group(1).lower()
     user_instruction = (match.group(2) or "").strip()
+    if command in {"howto", "how_to", "critical", "critical_analysis"}:
+        command = {"how_to": "howto", "critical_analysis": "critical"}.get(command, command)
+        await adaptive_command(update, context, command, request_text=user_instruction)
+        return
     status = await message.reply_text("🖼️ Reading the image and understanding your request...")
     try:
         photo = message.photo[-1]
@@ -401,6 +462,8 @@ def setup_handlers():
     telegram_app.add_handler(CommandHandler("idea", idea_command))
     telegram_app.add_handler(CommandHandler("ideas", ideas_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
+    telegram_app.add_handler(CommandHandler(["howto", "how_to"], howto_command))
+    telegram_app.add_handler(CommandHandler(["critical", "critical_analysis"], critical_command))
     telegram_app.add_handler(CommandHandler("addniche", add_niche_command))
     telegram_app.add_handler(
         MessageHandler(
