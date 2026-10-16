@@ -291,7 +291,7 @@ multiple conclusions, and markdown-heavy formatting.
 
 REQUEST: {request or "(analyze attached/replied-to material)"}
 ATTACHED CONTEXT: {context_text[:900] or "(none)"}
-EVIDENCE: {research_text}
+EVIDENCE: {research_text[:5000]}
 SOURCES AVAILABLE: {sources}
 
 Return only the concise analysis. Do not include a SOURCES section; links are appended separately.
@@ -308,7 +308,7 @@ Return only the concise analysis. Do not include a SOURCES section; links are ap
 
     # Always append a short, deduplicated list of retrieved links for /critical.
     if is_critical:
-        output = re.sub(r"(?is)\\n\\s*(?:SOURCES|REFERENCES)\\s*\\n.*$", "", output).strip()
+        output = re.sub(r"(?is)\n\s*(?:SOURCES|REFERENCES)\s*\n.*$", "", output).strip()
         if source_list:
             output += "\n\nSources\n" + "\n".join(source_list[:4])
         else:
