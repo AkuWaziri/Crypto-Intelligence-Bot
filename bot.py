@@ -190,6 +190,9 @@ async def _run_adaptive_command(update, context, command, request_text=None):
         "idea": "🧠 Finding the real story and strongest angles...",
         "create": "✍️ Working out the best format, researching, and creating...",
         "generate": "🎨 Interpreting the request and building the output...",
+        "howto": "🛠️ Building a practical guide and checking useful references...",
+        "critical": "🔬 Examining the critical details and checking the evidence...",
+        "critical_analysis": "🔬 Examining the critical details and checking the evidence...",
     }.get(command, "🧠 Working on it...")
     status = await message.reply_text(status_text)
 
@@ -237,15 +240,24 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _run_adaptive_command(update, context, "generate")
 
 
+async def howto_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _run_adaptive_command(update, context, "howto")
+
+
+async def critical_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _run_adaptive_command(update, context, "critical")
+
+
 async def photo_caption_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Support commands written directly in a photo caption."""
     message = update.effective_message
     if not message or not message.photo or not message.caption:
         return
-    match = re.match(r"^/(idea|create|generate|research)(?:@\w+)?(?:\s+(.*))?$", message.caption.strip(), re.I | re.S)
+    match = re.match(r"^/(idea|create|generate|research|howto|how_to|critical|critical_analysis)(?:@\w+)?(?:\s+(.*))?$", message.caption.strip(), re.I | re.S)
     if not match:
         return
     command = match.group(1).lower()
+    command = {"how_to": "howto", "critical_analysis": "critical"}.get(command, command)
     request = (match.group(2) or "").strip()
     await _run_adaptive_command(update, context, command, request_text=request)
 
@@ -317,6 +329,8 @@ def setup_handlers():
     telegram_app.add_handler(CommandHandler("idea", idea_command))
     telegram_app.add_handler(CommandHandler("create", create_command))
     telegram_app.add_handler(CommandHandler("generate", generate_command))
+    telegram_app.add_handler(CommandHandler(["howto", "how_to"], howto_command))
+    telegram_app.add_handler(CommandHandler(["critical", "critical_analysis"], critical_command))
     telegram_app.add_handler(
         MessageHandler(filters.PHOTO & filters.CAPTION, photo_caption_command)
     )
@@ -350,6 +364,8 @@ Research crypto/Web3 and create content from your creator profile.
 /idea &lt;request&gt; — discover angles, ideas, or investigate a post
 /create &lt;request&gt; — create content, findings, rewrites, or analysis
 /generate &lt;request&gt; — generate a requested artifact, including ASCII banners
+/howto &lt;request&gt; — step-by-step guide with practical details and references
+/critical &lt;request&gt; — uncover critical details, hidden mechanisms, and implications
 /addniche &lt;niche&gt; — add a research niche
 /feed — run a fresh intelligence feed now
 
@@ -363,6 +379,8 @@ Reply to a post or screenshot with a command, or attach a screenshot with the co
 /create analyse this post and explain the mechanism
 /research investigate this claim and find primary sources
 /generate make a polished ASCII banner about stablecoin payments
+/howto show me how to find and trade Starknet meme coins, with tools and risks
+/critical what is the most important detail people are missing in this post?
 """
 
 telegram_app = (

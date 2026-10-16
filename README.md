@@ -8,6 +8,8 @@ An adaptive crypto/Web3 research and creator assistant. Commands accept natural 
 - `/idea <request>` — discover different content angles, investigate what is really happening, or find the strongest story inside a post.
 - `/create <request>` — write a discovery, analysis, rewrite, explainer, guide, or other requested content.
 - `/generate <request>` — create the requested artifact, including text-based ASCII/Unicode banners and diagrams.
+- `/howto <request>` (alias: `/how_to`) — get practical, step-by-step instructions with prerequisites, examples, pitfalls, and relevant references.
+- `/critical <request>` (alias: `/critical_analysis`) — inspect a post, claim, protocol, or event for the most important overlooked detail, mechanism, assumptions, numbers, incentives, risks, and implications.
 - `/feed` — run the scheduled intelligence feed manually.
 - `/niches` — list configured research niches.
 - `/addniche <niche>` — add a research niche.
@@ -27,6 +29,8 @@ The command is a hint, not a fixed template. The bot uses the full sentence to i
 /research investigate this claim and find primary sources
 /generate make a polished ASCII banner about stablecoin payments
 /generate draw a terminal-style flow diagram showing how this protocol works
+/howto show me how to do this with tools, steps, costs, and common mistakes
+/critical what is the most important overlooked detail in this post, and what evidence supports it?
 ```
 
 ### Use attached posts and screenshots
@@ -34,6 +38,7 @@ The command is a hint, not a fixed template. The bot uses the full sentence to i
 1. Send a post or screenshot, then reply to it with a command such as `/idea what's the real story here?`.
 2. Alternatively, attach a screenshot and put the command in its caption.
 3. The bot extracts visible context, searches the underlying subject when useful, and distinguishes source evidence from interpretation.
+4. Use `/howto` for actionable procedures and `/critical` for deeper scrutiny of the key detail. Both can be used as replies to a post or screenshot.
 
 Images are analysed with the configured vision model. Research-led answers include real source links when available. The bot should state uncertainty rather than invent missing evidence.
 
