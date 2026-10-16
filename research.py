@@ -2,7 +2,7 @@ import html
 import logging
 import re
 import requests
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from xml.etree import ElementTree
 
 from config import MAX_RESEARCH_RESULTS
@@ -88,6 +88,18 @@ def build_research_queries(query):
 def normalize_result(title, url, content, research_angle="general"):
     title = clean_text(title)
     url = str(url or "").strip()
+    # Bing News may wrap publisher links in an apiclick redirect.
+    try:
+        parsed = urlparse(url)
+        if parsed.netloc.lower().endswith("bing.com") and "apiclick" in parsed.path.lower():
+            wrapped = parse_qs(parsed.query).get("url", [""])[0]
+            if wrapped:
+                url = unquote(wrapped)
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            url = ""
+    except Exception:
+        url = ""
     content = clean_text(content)
     if len(content) > 1800:
         content = content[:1800].rstrip()
