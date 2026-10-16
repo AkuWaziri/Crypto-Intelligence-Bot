@@ -59,8 +59,9 @@ The writer uses:
 - `writer_profile/examples.txt`
 - `writer_profile/patterns.txt`
 - `writer_profile/rules.txt`
+- `writer_profile/howto_dna.txt` — flexible how-to guide patterns for opportunity playbooks, tool walkthroughs, mining/profitability, credits, careers, on-chain risk checks, creator workflows, and other practical topics.
 
-Add approved writing examples to the profile files to improve the fit of generated content.
+`/howto` loads the guide DNA at runtime and adapts the structure to the request. It is not a fixed template; add new patterns to `howto_dna.txt` as useful examples emerge. Examples are structural guidance only, and time-sensitive claims must be researched again rather than reused as facts. Market-manipulation examples should be handled as detection and risk education, not operational instructions.
 
 ## Environment variables
 
