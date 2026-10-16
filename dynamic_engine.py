@@ -171,6 +171,14 @@ def run_dynamic_task(command, request, context_text="", image_bytes=None):
                 "costs limitations risks"
             )
 
+    # /critical also searches keyword-only topics with a compact query.
+    if command in {"critical", "critical_analysis"}:
+        needs_research = True
+        if not search_query:
+            search_query = request or context_text[:700]
+        if search_query:
+            search_query += " evidence mechanism official sources risks data"
+
     research = None
     if needs_research and search_query:
         research_input = search_query
@@ -266,7 +274,7 @@ COMMAND-SPECIFIC EXPECTATIONS:
     output = call_writer(
         final_prompt,
         temperature=0.72 if command == "research" else 0.88,
-        max_tokens=450,
+        max_tokens=300 if command in {"critical", "critical_analysis"} else 450,
     ).strip()
 
     if not output:
