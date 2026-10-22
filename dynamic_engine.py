@@ -237,6 +237,8 @@ RESEARCH EVIDENCE:
 SOURCE LINKS:
 {sources}
 
+WRITING STYLE (only for /create, /howto, and /critical): Use contractions and occasional natural abbreviations when they fit (e.g., vs., btw, tbh, imo, rn, approx., e.g., i.e.). Vary usage; never force slang or add abbreviations just to meet a quota. Keep technical steps, evidence, calculations, and risk warnings precise. Do not alter quoted source material.
+
 COMMAND-SPECIFIC EXPECTATIONS:
 - /howto (and /how_to): use HOW-TO WRITING DNA as an adaptable reference. Infer the actual job-to-be-done
   and choose the best structure for that subject: opportunity playbook, tool walkthrough, risk checklist,
@@ -282,6 +284,7 @@ COMMAND-SPECIFIC EXPECTATIONS:
     if is_critical:
         final_prompt = f"""
 Analyze the user's topic/post using the evidence below. Be concise and natural.
+Use contractions and occasional fitting abbreviations only when natural; never force slang. Keep facts, caveats, and risk language precise.
 Do not overthink or write a report. Maximum 120 words before sources.
 State the most important finding, the evidence or number that matters, and one critical caveat.
 Separate confirmed fact from inference. If evidence is outdated, conflicting, or insufficient, say so.
